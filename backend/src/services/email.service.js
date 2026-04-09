@@ -1,5 +1,6 @@
 const nodemailer = require('nodemailer');
 const path = require('path');
+const { generarPdfSubmission } = require('./pdf.service');
 
 const crearTransporter = () => {
   return nodemailer.createTransport({
@@ -88,6 +89,20 @@ const enviarEmailSubmission = async ({ submission, plantaNombre, archivos, email
     path: logoPath,
     cid: 'logo_gnp',
   });
+
+  // Generar PDF con los datos del formulario
+  try {
+    const tituloPdf = `Nueva Alta de Cliente — ${submission.commercial_name}`;
+    const pdfBuffer = await generarPdfSubmission(datosTabla, tituloPdf);
+    adjuntos.push({
+      filename: `Alta_${submission.commercial_name.replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ ]/g, '_')}.pdf`,
+      content: pdfBuffer,
+      contentType: 'application/pdf',
+    });
+  } catch (err) {
+    console.error('Error al generar PDF de submission:', err);
+    // No bloqueamos el envio del email si falla la generacion del PDF
+  }
 
   const mailOptions = {
     from: process.env.SMTP_FROM,
