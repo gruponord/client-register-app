@@ -18,4 +18,9 @@ router.get('/:id/emails', verificarToken, plantsController.listarEmails);
 router.post('/:id/emails', verificarToken, soloAdmin, auditMiddleware('plant_emails'), plantsController.agregarEmail);
 router.delete('/:id/emails/:emailId', verificarToken, soloAdmin, auditMiddleware('plant_emails'), plantsController.eliminarEmail);
 
+// Emails de prospección
+router.get('/:id/prospecting-emails', verificarToken, plantsController.listarEmailsProspecting);
+router.post('/:id/prospecting-emails', verificarToken, soloAdmin, auditMiddleware('plant_prospecting_emails'), plantsController.agregarEmailProspecting);
+router.delete('/:id/prospecting-emails/:emailId', verificarToken, soloAdmin, auditMiddleware('plant_prospecting_emails'), plantsController.eliminarEmailProspecting);
+
 module.exports = router;

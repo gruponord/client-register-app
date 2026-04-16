@@ -29,4 +29,32 @@ const moverFicheros = async (files, submissionId) => {
   return resultados;
 };
 
-module.exports = { moverFicheros };
+/**
+ * Mueve los ficheros temporales al directorio definitivo de prospección
+ */
+const moverFicherosProspecting = async (files, prospectingId) => {
+  const uploadDir = process.env.UPLOAD_DIR || './uploads';
+  const destDir = path.join(uploadDir, 'prospecting', String(prospectingId));
+
+  if (!fs.existsSync(destDir)) {
+    fs.mkdirSync(destDir, { recursive: true });
+  }
+
+  const resultados = [];
+
+  for (const file of files) {
+    const destPath = path.join(destDir, file.filename);
+    fs.renameSync(file.path, destPath);
+
+    resultados.push({
+      original_name: file.originalname,
+      stored_path: destPath,
+      mime_type: file.mimetype,
+      size_bytes: file.size,
+    });
+  }
+
+  return resultados;
+};
+
+module.exports = { moverFicheros, moverFicherosProspecting };

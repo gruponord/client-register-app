@@ -8,6 +8,13 @@ const TABLAS_PERMITIDAS = [
   'billing_types',
   'payment_methods',
   'visit_periods',
+  'beer_brands',
+  'contract_types',
+  'barrel_volumes',
+  'barrel_discount_types',
+  'improvement_points',
+  'interest_brands',
+  'proposal_priorities',
 ];
 
 const validarTabla = (tabla) => {

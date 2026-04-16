@@ -122,4 +122,88 @@ const enviarEmailSubmission = async ({ submission, plantaNombre, archivos, email
   }
 };
 
-module.exports = { enviarEmailSubmission };
+const construirTablaProspectingHTML = (datos) => {
+  const filas = Object.entries(datos)
+    .map(([campo, valor]) => {
+      return `<tr>
+        <td style="padding:8px 12px;border:1px solid #ddd;background:#f8f9fa;font-weight:bold;width:200px;">${campo}</td>
+        <td style="padding:8px 12px;border:1px solid #ddd;">${valor ?? '-'}</td>
+      </tr>`;
+    })
+    .join('');
+
+  return `
+    <div style="font-family:Arial,sans-serif;max-width:800px;margin:0 auto;">
+      <div style="background:#003278;padding:16px 24px;border-radius:8px 8px 0 0;">
+        <img src="cid:logo_gnp" alt="Grupo Nord Pirineus" style="height:40px;" />
+      </div>
+      <div style="padding:20px 24px;border:1px solid #ddd;border-top:none;">
+        <h2 style="color:#003278;margin-top:0;">Prospección de Cliente de Cerveza</h2>
+        <table style="width:100%;border-collapse:collapse;margin-top:16px;">
+          ${filas}
+        </table>
+        <p style="margin-top:20px;color:#666;font-size:12px;">
+          Este email ha sido generado automáticamente por el sistema de prospección — Grupo Nord Pirineus.
+        </p>
+      </div>
+    </div>
+  `;
+};
+
+const enviarEmailProspecting = async ({ submission, plantaNombre, archivos, emailsPlanta, emailUsuario }) => {
+  const transporter = crearTransporter();
+
+  const estrellas = submission.service_rating
+    ? '★'.repeat(submission.service_rating) + '☆'.repeat(5 - submission.service_rating)
+    : 'No valorado';
+
+  const datosTabla = {
+    'Planta': plantaNombre,
+    'Código de cliente': submission.client_code || '-',
+    'Nombre del cliente': submission.client_name,
+    'Dirección': submission.address,
+    'Persona de contacto': submission.contact_person,
+    'Teléfono contacto': submission.contact_phone,
+    'Horario llamar': submission.call_schedule,
+    'Marcas actuales en barril y botella': submission.current_brands_text + (submission.other_brands_text ? ` (Otras: ${submission.other_brands_text})` : ''),
+    'Tipo de contrato o compromiso actual': submission.contract_type_name || '-',
+    'Volumen de barril aproximado al año': submission.barrel_volume_name || '-',
+    'Tipo de descuento en barril': submission.barrel_discount_type_name || '-',
+    'Valoración global del servicio': estrellas,
+    'Puntos de mejora que menciona': submission.improvement_points_text,
+    'Marcas nuestras con interés': submission.interest_brands_text,
+    'Prioridades en propuesta': submission.proposal_priorities_text,
+    'Notas adicionales': submission.notes || '-',
+  };
+
+  const adjuntos = (archivos || []).map((f) => ({
+    filename: f.original_name,
+    path: path.resolve(f.stored_path),
+  }));
+
+  // Logo embebido en el email
+  const logoPath = path.resolve(__dirname, '../../logo_GNP.jpg');
+  adjuntos.push({
+    filename: 'logo_GNP.jpg',
+    path: logoPath,
+    cid: 'logo_gnp',
+  });
+
+  const mailOptions = {
+    from: process.env.SMTP_FROM,
+    to: emailsPlanta.join(', '),
+    cc: emailUsuario || undefined,
+    subject: `Prospección de Cerveza — ${submission.client_name} — ${plantaNombre}`,
+    html: construirTablaProspectingHTML(datosTabla),
+    attachments: adjuntos,
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log('Email de prospección enviado correctamente');
+  } catch (err) {
+    console.error('Error al enviar email de prospección:', err);
+  }
+};
+
+module.exports = { enviarEmailSubmission, enviarEmailProspecting };

@@ -17,14 +17,27 @@ const menuItems = [
       { path: '/admin/maestros/visit_periods', label: 'Periodos de Visita' },
     ],
   },
-  { path: '/admin/respuestas', label: 'Respuestas' },
+  {
+    label: 'Maestros Prospección',
+    children: [
+      { path: '/admin/maestros/beer_brands', label: 'Marcas Cerveza' },
+      { path: '/admin/maestros/contract_types', label: 'Tipos Contrato' },
+      { path: '/admin/maestros/barrel_volumes', label: 'Volúmenes Barril' },
+      { path: '/admin/maestros/barrel_discount_types', label: 'Tipos Descuento Barril' },
+      { path: '/admin/maestros/improvement_points', label: 'Puntos de Mejora' },
+      { path: '/admin/maestros/interest_brands', label: 'Marcas Interés' },
+      { path: '/admin/maestros/proposal_priorities', label: 'Prioridades Propuesta' },
+    ],
+  },
+  { path: '/admin/respuestas', label: 'Respuestas Altas' },
+  { path: '/admin/prospecciones', label: 'Prospecciones' },
   { path: '/admin/auditoria', label: 'Auditoría' },
 ];
 
 const AdminLayout = () => {
   const { usuario, cerrarSesion } = useAuth();
   const navigate = useNavigate();
-  const [maestrosAbierto, setMaestrosAbierto] = useState(false);
+  const [submenusAbiertos, setSubmenusAbiertos] = useState({});
   const [sidebarAbierto, setSidebarAbierto] = useState(false);
 
   const handleLogout = () => {
@@ -55,16 +68,17 @@ const AdminLayout = () => {
         <nav className="p-4 space-y-1">
           {menuItems.map((item) => {
             if (item.children) {
+              const abierto = submenusAbiertos[item.label] || false;
               return (
                 <div key={item.label}>
                   <button
-                    onClick={() => setMaestrosAbierto(!maestrosAbierto)}
+                    onClick={() => setSubmenusAbiertos(prev => ({ ...prev, [item.label]: !prev[item.label] }))}
                     className="w-full text-left px-4 py-2 rounded-lg text-sm text-gray-300 hover:bg-gray-700 hover:text-white flex justify-between items-center"
                   >
                     {item.label}
-                    <span className={`transform transition-transform ${maestrosAbierto ? 'rotate-180' : ''}`}>&#9662;</span>
+                    <span className={`transform transition-transform ${abierto ? 'rotate-180' : ''}`}>&#9662;</span>
                   </button>
-                  {maestrosAbierto && (
+                  {abierto && (
                     <div className="ml-4 mt-1 space-y-1">
                       {item.children.map((child) => (
                         <NavLink key={child.path} to={child.path} className={linkClasses} onClick={() => setSidebarAbierto(false)}>

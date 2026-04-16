@@ -9,6 +9,13 @@ const TITULOS = {
   billing_types: 'Tipos de Facturación',
   payment_methods: 'Formas de Pago',
   visit_periods: 'Periodos de Visita',
+  beer_brands: 'Marcas de Cerveza',
+  contract_types: 'Tipos de Contrato',
+  barrel_volumes: 'Volúmenes de Barril',
+  barrel_discount_types: 'Tipos de Descuento en Barril',
+  improvement_points: 'Puntos de Mejora',
+  interest_brands: 'Marcas de Interés',
+  proposal_priorities: 'Prioridades de Propuesta',
 };
 
 const MastersPage = () => {

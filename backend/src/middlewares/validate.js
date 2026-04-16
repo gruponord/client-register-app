@@ -74,6 +74,37 @@ const validarSubmission = [
   ejecutarValidacion,
 ];
 
+// Helper: valida que un campo sea un array (o JSON string parseable a array) con al menos min elementos
+const esArrayValido = (valor, min = 1) => {
+  let arr = valor;
+  if (typeof valor === 'string') {
+    try { arr = JSON.parse(valor); } catch { return false; }
+  }
+  return Array.isArray(arr) && arr.length >= min;
+};
+
+// Validaciones para prospección de cliente de cerveza
+const validarProspecting = [
+  body('plant_id').isInt({ min: 1 }).withMessage('Planta es obligatoria'),
+  body('client_code').optional({ values: 'falsy' }).trim().isLength({ max: 10 }).withMessage('Código de cliente máx 10 car.'),
+  body('client_name').trim().notEmpty().isLength({ max: 40 }).withMessage('Nombre del cliente es obligatorio (máx 40 car.)'),
+  body('address').trim().notEmpty().isLength({ max: 40 }).withMessage('Dirección es obligatoria (máx 40 car.)'),
+  body('contact_person').trim().notEmpty().isLength({ max: 40 }).withMessage('Persona de contacto es obligatoria (máx 40 car.)'),
+  body('contact_phone').trim().notEmpty().isLength({ max: 40 }).withMessage('Teléfono contacto es obligatorio (máx 40 car.)'),
+  body('call_schedule').trim().notEmpty().isLength({ max: 40 }).withMessage('Horario llamar es obligatorio (máx 40 car.)'),
+  body('current_brands').custom((v) => esArrayValido(v)).withMessage('Marcas actuales es obligatorio'),
+  body('contract_type_id').isInt({ min: 1 }).withMessage('Tipo de contrato es obligatorio'),
+  body('barrel_volume_id').isInt({ min: 1 }).withMessage('Volumen de barril es obligatorio'),
+  body('barrel_discount_type_id').isInt({ min: 1 }).withMessage('Tipo de descuento es obligatorio'),
+  body('service_rating').optional({ values: 'falsy' }).isInt({ min: 1, max: 5 }).withMessage('Valoración debe ser de 1 a 5'),
+  body('improvement_points').custom((v) => esArrayValido(v)).withMessage('Puntos de mejora es obligatorio'),
+  body('interest_brands').custom((v) => esArrayValido(v)).withMessage('Marcas de interés es obligatorio'),
+  body('proposal_priorities').custom((v) => esArrayValido(v)).withMessage('Prioridades de propuesta es obligatorio'),
+  body('notes').optional({ values: 'falsy' }).trim(),
+  body('other_brands_text').optional({ values: 'falsy' }).trim().isLength({ max: 200 }),
+  ejecutarValidacion,
+];
+
 // Validaciones para filtros de auditoría
 const validarFiltrosAuditoria = [
   query('user_id').optional().isInt(),
@@ -90,6 +121,7 @@ module.exports = {
   validarEditarUsuario,
   validarMaestro,
   validarSubmission,
+  validarProspecting,
   validarFiltrosAuditoria,
   ejecutarValidacion,
 };

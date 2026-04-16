@@ -20,7 +20,8 @@ const obtener = async (req, res) => {
     }
 
     const emails = await pool.query('SELECT * FROM plant_emails WHERE plant_id = $1 ORDER BY id', [req.params.id]);
-    res.json({ ...result.rows[0], emails: emails.rows });
+    const prospectingEmails = await pool.query('SELECT * FROM plant_prospecting_emails WHERE plant_id = $1 ORDER BY id', [req.params.id]);
+    res.json({ ...result.rows[0], emails: emails.rows, prospecting_emails: prospectingEmails.rows });
   } catch (err) {
     console.error('Error al obtener planta:', err);
     res.status(500).json({ error: 'Error interno del servidor' });
@@ -131,4 +132,55 @@ const eliminarEmail = async (req, res) => {
   }
 };
 
-module.exports = { listar, obtener, crear, actualizar, listarEmails, agregarEmail, eliminarEmail };
+// Gestión de emails de prospección
+const listarEmailsProspecting = async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM plant_prospecting_emails WHERE plant_id = $1 ORDER BY id', [req.params.id]);
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error al listar emails de prospección:', err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
+const agregarEmailProspecting = async (req, res) => {
+  try {
+    const { email } = req.body;
+    const result = await pool.query(
+      'INSERT INTO plant_prospecting_emails (plant_id, email) VALUES ($1, $2) RETURNING *',
+      [req.params.id, email]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    if (err.code === '23505') {
+      return res.status(409).json({ error: 'Este email ya está asignado a esta planta para prospección' });
+    }
+    if (err.code === '23503') {
+      return res.status(404).json({ error: 'Planta no encontrada' });
+    }
+    console.error('Error al agregar email de prospección:', err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
+const eliminarEmailProspecting = async (req, res) => {
+  try {
+    const result = await pool.query(
+      'DELETE FROM plant_prospecting_emails WHERE id = $1 AND plant_id = $2 RETURNING *',
+      [req.params.emailId, req.params.id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Email no encontrado' });
+    }
+    res.json({ message: 'Email eliminado', id: parseInt(req.params.emailId) });
+  } catch (err) {
+    console.error('Error al eliminar email de prospección:', err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
+module.exports = {
+  listar, obtener, crear, actualizar,
+  listarEmails, agregarEmail, eliminarEmail,
+  listarEmailsProspecting, agregarEmailProspecting, eliminarEmailProspecting,
+};

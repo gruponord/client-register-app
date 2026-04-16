@@ -18,7 +18,7 @@ const generarHoras = () => {
 
 const HORAS = generarHoras();
 
-const FormPage = () => {
+const FormPage = ({ onCambiarFormulario }) => {
   const navigate = useNavigate();
   const { usuario, cerrarSesion } = useAuth();
   const [maestros, setMaestros] = useState({
@@ -191,6 +191,23 @@ const FormPage = () => {
     }
   };
 
+  const tienesDatos = () => {
+    return form.commercial_name.trim() || form.business_name.trim() || form.nif_cif.trim() ||
+      form.street_address.trim() || form.phone.trim() || form.contact_email.trim() ||
+      form.visit_days.length > 0 || form.delivery_days.length > 0;
+  };
+
+  const handleCambiarFormulario = () => {
+    if (!onCambiarFormulario) return;
+    if (tienesDatos()) {
+      if (window.confirm('Si cambias de formulario perderás los datos introducidos. ¿Estás seguro?')) {
+        onCambiarFormulario('prospeccion');
+      }
+    } else {
+      onCambiarFormulario('prospeccion');
+    }
+  };
+
   const inputClasses = 'w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm';
   const selectClasses = inputClasses;
 
@@ -213,7 +230,14 @@ const FormPage = () => {
               </button>
             </div>
           </div>
-          <h1 className="text-sm sm:text-lg font-bold text-gray-800 mt-1">Registro de Alta de Cliente</h1>
+          <div className="flex items-center justify-between mt-1">
+            <h1 className="text-sm sm:text-lg font-bold text-gray-800">Registro de Alta de Cliente</h1>
+            {onCambiarFormulario && (
+              <button onClick={handleCambiarFormulario} className="text-xs sm:text-sm text-amber-600 hover:text-amber-800 underline">
+                Cambiar a Prospección
+              </button>
+            )}
+          </div>
         </div>
       </div>
 

@@ -5,8 +5,10 @@ import AdminLayout from './components/AdminLayout';
 import LoginPage from './pages/LoginPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
-import FormPage from './pages/FormPage';
+import FormSelectorPage from './pages/FormSelectorPage';
 import SuccessPage from './pages/SuccessPage';
+import ProspectingSuccessPage from './pages/ProspectingSuccessPage';
+import ProspectingSubmissionsPage from './pages/admin/ProspectingSubmissionsPage';
 import DashboardPage from './pages/admin/DashboardPage';
 import UsersPage from './pages/admin/UsersPage';
 import MastersPage from './pages/admin/MastersPage';
@@ -26,12 +28,17 @@ function App() {
           {/* Formulario - cualquier usuario autenticado */}
           <Route path="/formulario" element={
             <ProtectedRoute>
-              <FormPage />
+              <FormSelectorPage />
             </ProtectedRoute>
           } />
           <Route path="/exito" element={
             <ProtectedRoute>
               <SuccessPage />
+            </ProtectedRoute>
+          } />
+          <Route path="/exito-prospeccion" element={
+            <ProtectedRoute>
+              <ProspectingSuccessPage />
             </ProtectedRoute>
           } />
 
@@ -46,6 +53,7 @@ function App() {
             <Route path="maestros/:tipo" element={<MastersPage />} />
             <Route path="plantas" element={<PlantsPage />} />
             <Route path="respuestas" element={<SubmissionsPage />} />
+            <Route path="prospecciones" element={<ProspectingSubmissionsPage />} />
             <Route path="auditoria" element={<AuditPage />} />
           </Route>
 

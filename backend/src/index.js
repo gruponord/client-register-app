@@ -12,6 +12,7 @@ const mastersRoutes = require('./routes/masters.routes');
 const plantsRoutes = require('./routes/plants.routes');
 const submissionsRoutes = require('./routes/submissions.routes');
 const auditRoutes = require('./routes/audit.routes');
+const prospectingRoutes = require('./routes/prospecting.routes');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -38,6 +39,7 @@ app.use('/api/masters', mastersRoutes);
 app.use('/api/plants', plantsRoutes);
 app.use('/api/submissions', submissionsRoutes);
 app.use('/api/audit', auditRoutes);
+app.use('/api/prospecting', prospectingRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

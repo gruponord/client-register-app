@@ -8,6 +8,8 @@ const PlantsPage = () => {
   const [form, setForm] = useState({ code: '', name: '' });
   const [emails, setEmails] = useState([]);
   const [nuevoEmail, setNuevoEmail] = useState('');
+  const [emailsProspecting, setEmailsProspecting] = useState([]);
+  const [nuevoEmailProspecting, setNuevoEmailProspecting] = useState('');
   const [error, setError] = useState('');
 
   const cargar = async () => {
@@ -19,9 +21,9 @@ const PlantsPage = () => {
         data.map(async (p) => {
           try {
             const res = await api.get(`/plants/${p.id}`);
-            return { ...p, emails: res.data.emails || [] };
+            return { ...p, emails: res.data.emails || [], prospecting_emails: res.data.prospecting_emails || [] };
           } catch {
-            return { ...p, emails: [] };
+            return { ...p, emails: [], prospecting_emails: [] };
           }
         })
       );
@@ -38,6 +40,7 @@ const PlantsPage = () => {
   const abrirCrear = () => {
     setForm({ code: '', name: '' });
     setEmails([]);
+    setEmailsProspecting([]);
     setModal({ abierto: true, editando: null });
     setError('');
   };
@@ -47,6 +50,7 @@ const PlantsPage = () => {
       const { data } = await api.get(`/plants/${planta.id}`);
       setForm({ code: data.code, name: data.name });
       setEmails(data.emails || []);
+      setEmailsProspecting(data.prospecting_emails || []);
       setModal({ abierto: true, editando: data });
       setError('');
     } catch (err) {
@@ -91,6 +95,27 @@ const PlantsPage = () => {
     }
   };
 
+  const agregarEmailProspecting = async () => {
+    if (!nuevoEmailProspecting.trim() || !modal.editando) return;
+    try {
+      const { data } = await api.post(`/plants/${modal.editando.id}/prospecting-emails`, { email: nuevoEmailProspecting.trim() });
+      setEmailsProspecting((prev) => [...prev, data]);
+      setNuevoEmailProspecting('');
+    } catch (err) {
+      setError(err.response?.data?.error || 'Error al agregar email de prospección');
+    }
+  };
+
+  const eliminarEmailProspecting = async (emailId) => {
+    if (!modal.editando) return;
+    try {
+      await api.delete(`/plants/${modal.editando.id}/prospecting-emails/${emailId}`);
+      setEmailsProspecting((prev) => prev.filter((e) => e.id !== emailId));
+    } catch (err) {
+      console.error('Error:', err);
+    }
+  };
+
   const toggleActivo = async (planta) => {
     try {
       await api.put(`/plants/${planta.id}`, { active: !planta.active });
@@ -115,16 +140,17 @@ const PlantsPage = () => {
             <tr>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Código</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nombre</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Emails notificación</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Emails Altas</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Emails Prospección</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
             {cargando ? (
-              <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-500">Cargando...</td></tr>
+              <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-500">Cargando...</td></tr>
             ) : plantas.length === 0 ? (
-              <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-500">No hay datos</td></tr>
+              <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-500">No hay datos</td></tr>
             ) : plantas.map((p) => (
               <tr key={p.id} className="hover:bg-gray-50">
                 <td className="px-4 py-3 text-sm font-medium">{p.code}</td>
@@ -134,6 +160,19 @@ const PlantsPage = () => {
                     <div className="flex flex-wrap gap-1">
                       {p.emails.map((em) => (
                         <span key={em.id} className="inline-block bg-blue-50 text-blue-700 text-xs px-2 py-0.5 rounded">
+                          {em.email}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-gray-400 text-xs italic">Sin emails</span>
+                  )}
+                </td>
+                <td className="px-4 py-3 text-sm">
+                  {p.prospecting_emails && p.prospecting_emails.length > 0 ? (
+                    <div className="flex flex-wrap gap-1">
+                      {p.prospecting_emails.map((em) => (
+                        <span key={em.id} className="inline-block bg-amber-50 text-amber-700 text-xs px-2 py-0.5 rounded">
                           {em.email}
                         </span>
                       ))}
@@ -190,12 +229,12 @@ const PlantsPage = () => {
               </div>
             </form>
 
-            {/* Sección de emails (solo al editar) */}
+            {/* Sección de emails de altas (solo al editar) */}
             {modal.editando && (
               <div className="mt-6 pt-6 border-t">
-                <h4 className="text-md font-semibold text-gray-700 mb-3">Emails de notificación</h4>
+                <h4 className="text-md font-semibold text-gray-700 mb-3">Emails de notificación — Altas</h4>
                 <p className="text-xs text-gray-500 mb-3">
-                  Los emails asignados a esta planta recibirán las notificaciones de nuevas altas.
+                  Los emails asignados recibirán las notificaciones de nuevas altas de cliente.
                 </p>
 
                 <div className="flex gap-2 mb-3">
@@ -217,6 +256,43 @@ const PlantsPage = () => {
                       <li key={em.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
                         <span className="text-sm">{em.email}</span>
                         <button type="button" onClick={() => eliminarEmail(em.id)}
+                          className="text-red-500 hover:text-red-700 text-sm">
+                          Eliminar
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+
+            {/* Sección de emails de prospección (solo al editar) */}
+            {modal.editando && (
+              <div className="mt-6 pt-6 border-t">
+                <h4 className="text-md font-semibold text-amber-700 mb-3">Emails de notificación — Prospección Cerveza</h4>
+                <p className="text-xs text-gray-500 mb-3">
+                  Los emails asignados recibirán las notificaciones de prospecciones de cliente de cerveza.
+                </p>
+
+                <div className="flex gap-2 mb-3">
+                  <input type="email" placeholder="nuevo@email.com" value={nuevoEmailProspecting}
+                    onChange={(e) => setNuevoEmailProspecting(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); agregarEmailProspecting(); } }}
+                    className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-amber-500" />
+                  <button type="button" onClick={agregarEmailProspecting}
+                    className="bg-amber-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-amber-700">
+                    Añadir
+                  </button>
+                </div>
+
+                {emailsProspecting.length === 0 ? (
+                  <p className="text-sm text-gray-400 italic">No hay emails asignados</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {emailsProspecting.map((em) => (
+                      <li key={em.id} className="flex items-center justify-between bg-amber-50 rounded-lg px-3 py-2">
+                        <span className="text-sm">{em.email}</span>
+                        <button type="button" onClick={() => eliminarEmailProspecting(em.id)}
                           className="text-red-500 hover:text-red-700 text-sm">
                           Eliminar
                         </button>
