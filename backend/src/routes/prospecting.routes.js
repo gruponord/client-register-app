@@ -18,6 +18,7 @@ router.post('/', verificarToken, limiteCrear, upload.array('files', 20), validar
 
 // Listar y detalle (solo admin)
 router.get('/', verificarToken, soloAdmin, prospectingController.listar);
+router.get('/export', verificarToken, soloAdmin, prospectingController.exportar);
 router.get('/:id', verificarToken, soloAdmin, prospectingController.obtener);
 
 module.exports = router;

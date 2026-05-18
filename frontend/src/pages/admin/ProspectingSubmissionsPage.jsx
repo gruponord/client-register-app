@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import api from '../../services/api';
+import * as XLSX from 'xlsx';
 
 const ProspectingSubmissionsPage = () => {
   const [registros, setRegistros] = useState([]);
@@ -56,6 +57,33 @@ const ProspectingSubmissionsPage = () => {
     }
   };
 
+  const exportarExcel = async () => {
+    try {
+      const params = new URLSearchParams();
+      if (filtros.plant_id) params.append('plant_id', filtros.plant_id);
+      if (filtros.from) params.append('from', filtros.from);
+      if (filtros.to) params.append('to', filtros.to);
+
+      const { data } = await api.get(`/prospecting/export?${params.toString()}`);
+      const filas = data.data.map((r) => ({
+        'ID': r.id,
+        'FECHA': new Date(r.created_at).toLocaleString('es-ES'),
+        'PLANTA': r.plant_name || '',
+        'CLIENTE': r.client_name || '',
+        'REGISTRADO POR': r.user_name || '',
+        'VOLUMEN BARRILES/SEMANA': r.barrel_volume_name || '',
+        'MARCA': r.brands || '',
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(filas);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Prospecciones');
+      XLSX.writeFile(wb, `prospecciones_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    } catch (err) {
+      console.error('Error al exportar:', err);
+    }
+  };
+
   const renderEstrellas = (rating) => {
     if (!rating) return 'No valorado';
     return '★'.repeat(rating) + '☆'.repeat(5 - rating) + ` (${rating}/5)`;
@@ -72,6 +100,10 @@ const ProspectingSubmissionsPage = () => {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold text-gray-800">Prospecciones de Cerveza</h2>
+        <button onClick={exportarExcel} disabled={total === 0}
+          className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700 disabled:opacity-50">
+          Exportar Excel
+        </button>
       </div>
 
       {/* Filtros */}

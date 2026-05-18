@@ -245,4 +245,73 @@ const crear = async (req, res) => {
   }
 };
 
-module.exports = { listar, obtener, crear };
+const exportar = async (req, res) => {
+  try {
+    const { plant_id, from, to } = req.query;
+    const condiciones = [];
+    const valores = [];
+    let idx = 1;
+
+    if (plant_id) { condiciones.push(`ps.plant_id = $${idx++}`); valores.push(plant_id); }
+    if (from) { condiciones.push(`ps.created_at >= $${idx++}`); valores.push(from); }
+    if (to) { condiciones.push(`ps.created_at <= $${idx++}`); valores.push(to + 'T23:59:59Z'); }
+
+    const where = condiciones.length > 0 ? 'WHERE ' + condiciones.join(' AND ') : '';
+
+    const result = await pool.query(
+      `SELECT ps.id, ps.created_at, ps.client_name, ps.current_brands, ps.other_brands_text,
+              p.name AS plant_name,
+              u.full_name AS user_name,
+              bv.name AS barrel_volume_name
+       FROM prospecting_submissions ps
+       LEFT JOIN plants p ON ps.plant_id = p.id
+       LEFT JOIN users u ON ps.user_id = u.id
+       LEFT JOIN barrel_volumes bv ON ps.barrel_volume_id = bv.id
+       ${where}
+       ORDER BY ps.created_at DESC`,
+      valores
+    );
+
+    const todosIds = new Set();
+    for (const r of result.rows) {
+      if (Array.isArray(r.current_brands)) {
+        r.current_brands.forEach((id) => todosIds.add(id));
+      }
+    }
+
+    const mapaMarcas = {};
+    if (todosIds.size > 0) {
+      const marcasRes = await pool.query(
+        'SELECT id, name FROM beer_brands WHERE id = ANY($1)',
+        [Array.from(todosIds)]
+      );
+      marcasRes.rows.forEach((m) => { mapaMarcas[m.id] = m.name; });
+    }
+
+    const data = result.rows.map((r) => {
+      const nombres = Array.isArray(r.current_brands)
+        ? r.current_brands.map((id) => mapaMarcas[id]).filter(Boolean)
+        : [];
+      let marcas = nombres.join(', ');
+      if (r.other_brands_text) {
+        marcas = marcas ? `${marcas}, Otras: ${r.other_brands_text}` : `Otras: ${r.other_brands_text}`;
+      }
+      return {
+        id: r.id,
+        created_at: r.created_at,
+        plant_name: r.plant_name,
+        client_name: r.client_name,
+        user_name: r.user_name,
+        barrel_volume_name: r.barrel_volume_name,
+        brands: marcas,
+      };
+    });
+
+    res.json({ data });
+  } catch (err) {
+    console.error('Error al exportar prospecciones:', err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
+module.exports = { listar, obtener, crear, exportar };

@@ -217,6 +217,7 @@ client-register-app/
 - CRUD de maestros genérico (comerciales, acciones, clases, facturación, pago, periodos)
 - Gestión de plantas con emails de notificación (visibles en tabla)
 - Consulta de respuestas con filtros, detalle expandible y exportación a Excel
+- Gestión de prospecciones de cerveza: listado con filtros (planta, fechas), detalle expandible y exportación a Excel con columnas ID, FECHA, PLANTA, CLIENTE, REGISTRADO POR, VOLUMEN BARRILES/SEMANA, MARCA
 - Log de auditoría con filtros por usuario, acción, entidad y rango de fechas
 
 ### Seguridad
@@ -246,6 +247,11 @@ client-register-app/
 | GET | /api/submissions | Listar altas (paginado + filtros) | Admin |
 | GET | /api/submissions/:id | Detalle de alta con ficheros | Autenticado |
 | POST | /api/submissions | Crear alta (multipart/form-data) | Autenticado |
+| POST | /api/prospecting | Crear prospección de cerveza (multipart/form-data) | Autenticado |
+| GET | /api/prospecting | Listar prospecciones (paginado + filtros) | Admin |
+| GET | /api/prospecting/export | Exportar prospecciones filtradas (sin paginar) | Admin |
+| GET | /api/prospecting/:id | Detalle de prospección con ficheros | Admin |
+| GET/POST/DELETE | /api/plants/:id/prospecting-emails | Gestión emails prospección de planta | Admin |
 | GET | /api/audit | Log de auditoría (paginado + filtros) | Admin |
 | GET | /api/health | Health check | Público |
 
