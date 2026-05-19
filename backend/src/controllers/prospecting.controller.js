@@ -259,7 +259,7 @@ const exportar = async (req, res) => {
     const where = condiciones.length > 0 ? 'WHERE ' + condiciones.join(' AND ') : '';
 
     const result = await pool.query(
-      `SELECT ps.id, ps.created_at, ps.client_name, ps.current_brands, ps.other_brands_text,
+      `SELECT ps.id, ps.created_at, ps.client_name, ps.interest_brands,
               p.name AS plant_name,
               u.full_name AS user_name,
               bv.name AS barrel_volume_name
@@ -274,28 +274,24 @@ const exportar = async (req, res) => {
 
     const todosIds = new Set();
     for (const r of result.rows) {
-      if (Array.isArray(r.current_brands)) {
-        r.current_brands.forEach((id) => todosIds.add(id));
+      if (Array.isArray(r.interest_brands)) {
+        r.interest_brands.forEach((id) => todosIds.add(id));
       }
     }
 
     const mapaMarcas = {};
     if (todosIds.size > 0) {
       const marcasRes = await pool.query(
-        'SELECT id, name FROM beer_brands WHERE id = ANY($1)',
+        'SELECT id, name FROM interest_brands WHERE id = ANY($1)',
         [Array.from(todosIds)]
       );
       marcasRes.rows.forEach((m) => { mapaMarcas[m.id] = m.name; });
     }
 
     const data = result.rows.map((r) => {
-      const nombres = Array.isArray(r.current_brands)
-        ? r.current_brands.map((id) => mapaMarcas[id]).filter(Boolean)
+      const nombres = Array.isArray(r.interest_brands)
+        ? r.interest_brands.map((id) => mapaMarcas[id]).filter(Boolean)
         : [];
-      let marcas = nombres.join(', ');
-      if (r.other_brands_text) {
-        marcas = marcas ? `${marcas}, Otras: ${r.other_brands_text}` : `Otras: ${r.other_brands_text}`;
-      }
       return {
         id: r.id,
         created_at: r.created_at,
@@ -303,7 +299,7 @@ const exportar = async (req, res) => {
         client_name: r.client_name,
         user_name: r.user_name,
         barrel_volume_name: r.barrel_volume_name,
-        brands: marcas,
+        brands: nombres.join(', '),
       };
     });
 
