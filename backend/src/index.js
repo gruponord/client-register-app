@@ -17,6 +17,10 @@ const prospectingRoutes = require('./routes/prospecting.routes');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Detrás de Nginx: confiar en el primer proxy para que rate-limit y req.ip
+// vean la IP real del cliente vía X-Forwarded-For en vez de 127.0.0.1
+app.set('trust proxy', 1);
+
 // Crear directorio de uploads si no existe
 const uploadDir = process.env.UPLOAD_DIR || './uploads';
 if (!fs.existsSync(uploadDir)) {
