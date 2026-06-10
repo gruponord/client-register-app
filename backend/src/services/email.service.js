@@ -153,10 +153,6 @@ const construirTablaProspectingHTML = (datos) => {
 const enviarEmailProspecting = async ({ submission, plantaNombre, archivos, emailsPlanta, emailUsuario }) => {
   const transporter = crearTransporter();
 
-  const estrellas = submission.service_rating
-    ? '★'.repeat(submission.service_rating) + '☆'.repeat(5 - submission.service_rating)
-    : 'No valorado';
-
   const datosTabla = {
     'Planta': plantaNombre,
     'Código de cliente': submission.client_code || '-',
@@ -165,14 +161,13 @@ const enviarEmailProspecting = async ({ submission, plantaNombre, archivos, emai
     'Persona de contacto': submission.contact_person,
     'Teléfono contacto': submission.contact_phone,
     'Horario llamar': submission.call_schedule,
-    'Marcas actuales en barril y botella': submission.current_brands_text + (submission.other_brands_text ? ` (Otras: ${submission.other_brands_text})` : ''),
-    'Tipo de contrato o compromiso actual': submission.contract_type_name || '-',
-    'Volumen de barril aproximado al año': submission.barrel_volume_name || '-',
+    'Actual marca de barril': submission.current_brands_text + (submission.other_brands_text ? ` (Otras: ${submission.other_brands_text})` : ''),
+    '¿Tiene compromiso o contrato?': submission.contract_type_name || '-',
+    'Volumen de barril aproximado semanal': submission.barrel_volume_name || '-',
     'Tipo de descuento en barril': submission.barrel_discount_type_name || '-',
-    'Valoración global del servicio': estrellas,
-    'Puntos de mejora que menciona': submission.improvement_points_text,
-    'Marcas nuestras con interés': submission.interest_brands_text,
-    'Prioridades en propuesta': submission.proposal_priorities_text,
+    'Barriles sin cargo del proveedor actual': submission.free_barrels_name || '-',
+    '¿Con cuál de nuestras marcas elaboramos la propuesta?': submission.interest_brands_text,
+    '¿Qué priorizas en nuestra propuesta?': submission.proposal_priorities_text,
     'Notas adicionales': submission.notes || '-',
   };
 

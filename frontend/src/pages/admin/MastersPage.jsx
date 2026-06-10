@@ -13,7 +13,7 @@ const TITULOS = {
   contract_types: 'Tipos de Contrato',
   barrel_volumes: 'Volúmenes de Barril',
   barrel_discount_types: 'Tipos de Descuento en Barril',
-  improvement_points: 'Puntos de Mejora',
+  free_barrels_options: 'Barriles Sin Cargo',
   interest_brands: 'Marcas de Interés',
   proposal_priorities: 'Prioridades de Propuesta',
 };

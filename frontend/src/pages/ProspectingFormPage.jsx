@@ -10,14 +10,14 @@ const ProspectingFormPage = ({ onCambiarFormulario }) => {
   const [maestros, setMaestros] = useState({
     plants: [], beer_brands: [], contract_types: [],
     barrel_volumes: [], barrel_discount_types: [],
-    improvement_points: [], interest_brands: [], proposal_priorities: [],
+    free_barrels_options: [], interest_brands: [], proposal_priorities: [],
   });
   const [form, setForm] = useState({
     plant_id: '', client_code: '', client_name: '', address: '',
     contact_person: '', contact_phone: '', call_schedule: '',
     current_brands: [], other_brands_text: '',
     contract_type_id: '', barrel_volume_id: '', barrel_discount_type_id: '',
-    service_rating: 0, improvement_points: [], interest_brands: [],
+    free_barrels_id: '', interest_brands: [],
     proposal_priorities: [], notes: '',
   });
   const [archivos, setArchivos] = useState([]);
@@ -31,13 +31,13 @@ const ProspectingFormPage = ({ onCambiarFormulario }) => {
   useEffect(() => {
     const cargarMaestros = async () => {
       try {
-        const [plants, brands, contracts, volumes, discounts, improvements, interests, priorities] = await Promise.all([
+        const [plants, brands, contracts, volumes, discounts, freeBarrels, interests, priorities] = await Promise.all([
           api.get('/plants?active=true'),
           api.get('/masters/beer_brands?active=true'),
           api.get('/masters/contract_types?active=true'),
           api.get('/masters/barrel_volumes?active=true'),
           api.get('/masters/barrel_discount_types?active=true'),
-          api.get('/masters/improvement_points?active=true'),
+          api.get('/masters/free_barrels_options?active=true'),
           api.get('/masters/interest_brands?active=true'),
           api.get('/masters/proposal_priorities?active=true'),
         ]);
@@ -47,7 +47,7 @@ const ProspectingFormPage = ({ onCambiarFormulario }) => {
           contract_types: contracts.data,
           barrel_volumes: volumes.data,
           barrel_discount_types: discounts.data,
-          improvement_points: improvements.data,
+          free_barrels_options: freeBarrels.data,
           interest_brands: interests.data,
           proposal_priorities: priorities.data,
         });
@@ -118,7 +118,7 @@ const ProspectingFormPage = ({ onCambiarFormulario }) => {
     if (!form.contract_type_id) e.contract_type_id = 'Obligatorio';
     if (!form.barrel_volume_id) e.barrel_volume_id = 'Obligatorio';
     if (!form.barrel_discount_type_id) e.barrel_discount_type_id = 'Obligatorio';
-    if (form.improvement_points.length === 0) e.improvement_points = 'Selecciona al menos uno';
+    if (!form.free_barrels_id) e.free_barrels_id = 'Obligatorio';
     if (form.interest_brands.length === 0) e.interest_brands = 'Selecciona al menos una';
     if (form.proposal_priorities.length === 0) e.proposal_priorities = 'Selecciona al menos una';
     // other_brands_text obligatorio si "Otras marcas" está seleccionada
@@ -134,7 +134,7 @@ const ProspectingFormPage = ({ onCambiarFormulario }) => {
       form.contact_person.trim() && form.contact_phone.trim() && form.call_schedule.trim() &&
       form.current_brands.length > 0 && form.contract_type_id &&
       form.barrel_volume_id && form.barrel_discount_type_id &&
-      form.improvement_points.length > 0 && form.interest_brands.length > 0 &&
+      form.free_barrels_id && form.interest_brands.length > 0 &&
       form.proposal_priorities.length > 0;
   };
 
@@ -156,12 +156,11 @@ const ProspectingFormPage = ({ onCambiarFormulario }) => {
       formData.append('contract_type_id', form.contract_type_id);
       formData.append('barrel_volume_id', form.barrel_volume_id);
       formData.append('barrel_discount_type_id', form.barrel_discount_type_id);
-      if (form.service_rating > 0) formData.append('service_rating', form.service_rating);
+      formData.append('free_barrels_id', form.free_barrels_id);
       formData.append('notes', form.notes);
 
       // Arrays como JSON string
       formData.append('current_brands', JSON.stringify(form.current_brands));
-      formData.append('improvement_points', JSON.stringify(form.improvement_points));
       formData.append('interest_brands', JSON.stringify(form.interest_brands));
       formData.append('proposal_priorities', JSON.stringify(form.proposal_priorities));
 
@@ -187,7 +186,7 @@ const ProspectingFormPage = ({ onCambiarFormulario }) => {
     return form.client_name.trim() || form.address.trim() || form.contact_person.trim() ||
       form.contact_phone.trim() || form.call_schedule.trim() || form.current_brands.length > 0 ||
       form.contract_type_id || form.barrel_volume_id || form.barrel_discount_type_id ||
-      form.improvement_points.length > 0 || form.interest_brands.length > 0 ||
+      form.free_barrels_id || form.interest_brands.length > 0 ||
       form.proposal_priorities.length > 0 || form.notes.trim();
   };
 
@@ -268,8 +267,8 @@ const ProspectingFormPage = ({ onCambiarFormulario }) => {
           <input type="text" maxLength={40} value={form.call_schedule} onChange={(e) => handleChange('call_schedule', e.target.value)} className={inputClasses} placeholder="Ej: Mañanas de 9 a 12" />
         </FormField>
 
-        {/* Marcas actuales en barril y botella */}
-        <FormField label="Marcas actuales en barril y botella" obligatorio error={errores.current_brands}>
+        {/* Actual marca de barril */}
+        <FormField label="Actual marca de barril" obligatorio error={errores.current_brands}>
           <div className="space-y-2">
             {maestros.beer_brands.map((brand) => (
               <label key={brand.id} className="flex items-center gap-2 cursor-pointer">
@@ -292,7 +291,7 @@ const ProspectingFormPage = ({ onCambiarFormulario }) => {
         </FormField>
 
         {/* Tipo de contrato */}
-        <FormField label="Tipo de contrato o compromiso actual" obligatorio error={errores.contract_type_id}>
+        <FormField label="¿Tiene compromiso o contrato?" obligatorio error={errores.contract_type_id}>
           <div className="space-y-2">
             {maestros.contract_types.map((ct) => (
               <label key={ct.id} className="flex items-center gap-2 cursor-pointer">
@@ -306,7 +305,7 @@ const ProspectingFormPage = ({ onCambiarFormulario }) => {
         </FormField>
 
         {/* Volumen de barril */}
-        <FormField label="Volumen de barril aproximado al año" obligatorio error={errores.barrel_volume_id}>
+        <FormField label="Volumen de barril aproximado semanal" obligatorio error={errores.barrel_volume_id}>
           <div className="space-y-2">
             {maestros.barrel_volumes.map((bv) => (
               <label key={bv.id} className="flex items-center gap-2 cursor-pointer">
@@ -333,42 +332,22 @@ const ProspectingFormPage = ({ onCambiarFormulario }) => {
           </div>
         </FormField>
 
-        {/* Valoración del servicio 1-5 estrellas */}
-        <FormField label="¿Cómo valoraría globalmente el servicio que recibe?">
-          <div className="flex gap-2">
-            {[1, 2, 3, 4, 5].map((n) => (
-              <button key={n} type="button"
-                onClick={() => handleChange('service_rating', form.service_rating === n ? 0 : n)}
-                className="text-3xl transition-colors focus:outline-none"
-                title={`${n} estrella${n > 1 ? 's' : ''}`}
-              >
-                <span className={n <= form.service_rating ? 'text-amber-400' : 'text-gray-300'}>
-                  ★
-                </span>
-              </button>
-            ))}
-            {form.service_rating > 0 && (
-              <span className="ml-2 text-sm text-gray-500 self-center">{form.service_rating}/5</span>
-            )}
-          </div>
-        </FormField>
-
-        {/* Puntos de mejora */}
-        <FormField label="Puntos de mejora que menciona" obligatorio error={errores.improvement_points}>
+        {/* Barriles sin cargo del proveedor actual */}
+        <FormField label="Actualmente con tu proveedor, ¿tienes barriles sin cargo?" obligatorio error={errores.free_barrels_id}>
           <div className="space-y-2">
-            {maestros.improvement_points.map((ip) => (
-              <label key={ip.id} className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" checked={form.improvement_points.includes(ip.id)}
-                  onChange={() => handleCheckboxMulti('improvement_points', ip.id)}
-                  className="w-4 h-4 text-amber-600 rounded" />
-                <span className="text-sm">{ip.name}</span>
+            {maestros.free_barrels_options.map((fb) => (
+              <label key={fb.id} className="flex items-center gap-2 cursor-pointer">
+                <input type="radio" name="free_barrels" checked={form.free_barrels_id === String(fb.id)}
+                  onChange={() => handleChange('free_barrels_id', String(fb.id))}
+                  className="w-4 h-4 text-amber-600" />
+                <span className="text-sm">{fb.name}</span>
               </label>
             ))}
           </div>
         </FormField>
 
         {/* Marcas de interés */}
-        <FormField label="¿Con qué marcas nuestras mostraría interés?" obligatorio error={errores.interest_brands}>
+        <FormField label="¿Con cuál de nuestras marcas elaboramos la propuesta?" obligatorio error={errores.interest_brands}>
           <div className="space-y-2">
             {maestros.interest_brands.map((ib) => (
               <label key={ib.id} className="flex items-center gap-2 cursor-pointer">
@@ -382,7 +361,7 @@ const ProspectingFormPage = ({ onCambiarFormulario }) => {
         </FormField>
 
         {/* Prioridades de propuesta */}
-        <FormField label="¿Qué priorizaría en nuestra propuesta?" obligatorio error={errores.proposal_priorities}>
+        <FormField label="¿Qué priorizas en nuestra propuesta?" obligatorio error={errores.proposal_priorities}>
           <div className="space-y-2">
             {maestros.proposal_priorities.map((pp) => (
               <label key={pp.id} className="flex items-center gap-2 cursor-pointer">

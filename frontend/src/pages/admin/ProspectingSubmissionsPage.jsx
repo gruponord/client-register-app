@@ -200,18 +200,18 @@ const ProspectingSubmissionsPage = () => {
             {/* Campos especiales con más espacio */}
             <div className="mt-4 space-y-3 text-sm">
               <div className="bg-amber-50 rounded px-3 py-2">
-                <span className="font-medium text-gray-600">Marcas actuales:</span>{' '}
+                <span className="font-medium text-gray-600">Actual marca de barril:</span>{' '}
                 <span className="text-gray-800">
                   {renderNombres(detalle.current_brands_names)}
                   {detalle.other_brands_text ? ` (Otras: ${detalle.other_brands_text})` : ''}
                 </span>
               </div>
               <div className="bg-gray-50 rounded px-3 py-2">
-                <span className="font-medium text-gray-600">Tipo de contrato:</span>{' '}
+                <span className="font-medium text-gray-600">¿Tiene compromiso o contrato?:</span>{' '}
                 <span className="text-gray-800">{detalle.contract_type_name || '-'}</span>
               </div>
               <div className="bg-gray-50 rounded px-3 py-2">
-                <span className="font-medium text-gray-600">Volumen barril/año:</span>{' '}
+                <span className="font-medium text-gray-600">Volumen barril semanal:</span>{' '}
                 <span className="text-gray-800">{detalle.barrel_volume_name || '-'}</span>
               </div>
               <div className="bg-gray-50 rounded px-3 py-2">
@@ -219,19 +219,27 @@ const ProspectingSubmissionsPage = () => {
                 <span className="text-gray-800">{detalle.barrel_discount_type_name || '-'}</span>
               </div>
               <div className="bg-amber-50 rounded px-3 py-2">
-                <span className="font-medium text-gray-600">Valoración servicio:</span>{' '}
-                <span className="text-amber-600">{renderEstrellas(detalle.service_rating)}</span>
+                <span className="font-medium text-gray-600">Barriles sin cargo del proveedor actual:</span>{' '}
+                <span className="text-gray-800">{detalle.free_barrels_name || '-'}</span>
               </div>
+              {detalle.service_rating && (
+                <div className="bg-amber-50 rounded px-3 py-2">
+                  <span className="font-medium text-gray-600">Valoración servicio (histórico):</span>{' '}
+                  <span className="text-amber-600">{renderEstrellas(detalle.service_rating)}</span>
+                </div>
+              )}
+              {detalle.improvement_points_names && detalle.improvement_points_names.length > 0 && (
+                <div className="bg-amber-50 rounded px-3 py-2">
+                  <span className="font-medium text-gray-600">Puntos de mejora (histórico):</span>{' '}
+                  <span className="text-gray-800">{renderNombres(detalle.improvement_points_names)}</span>
+                </div>
+              )}
               <div className="bg-amber-50 rounded px-3 py-2">
-                <span className="font-medium text-gray-600">Puntos de mejora:</span>{' '}
-                <span className="text-gray-800">{renderNombres(detalle.improvement_points_names)}</span>
-              </div>
-              <div className="bg-amber-50 rounded px-3 py-2">
-                <span className="font-medium text-gray-600">Marcas nuestras con interés:</span>{' '}
+                <span className="font-medium text-gray-600">¿Con cuál de nuestras marcas elaboramos la propuesta?:</span>{' '}
                 <span className="text-gray-800">{renderNombres(detalle.interest_brands_names)}</span>
               </div>
               <div className="bg-amber-50 rounded px-3 py-2">
-                <span className="font-medium text-gray-600">Prioridades propuesta:</span>{' '}
+                <span className="font-medium text-gray-600">¿Qué priorizas en nuestra propuesta?:</span>{' '}
                 <span className="text-gray-800">{renderNombres(detalle.proposal_priorities_names)}</span>
               </div>
               {detalle.notes && (

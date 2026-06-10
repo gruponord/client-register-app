@@ -12,9 +12,9 @@ const TABLAS_PERMITIDAS = [
   'contract_types',
   'barrel_volumes',
   'barrel_discount_types',
-  'improvement_points',
   'interest_brands',
   'proposal_priorities',
+  'free_barrels_options',
 ];
 
 const validarTabla = (tabla) => {

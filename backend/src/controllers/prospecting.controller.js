@@ -55,12 +55,14 @@ const obtener = async (req, res) => {
               ct.name as contract_type_name,
               bv.name as barrel_volume_name,
               bdt.name as barrel_discount_type_name,
+              fbo.name as free_barrels_name,
               u.full_name as user_name
        FROM prospecting_submissions ps
        LEFT JOIN plants p ON ps.plant_id = p.id
        LEFT JOIN contract_types ct ON ps.contract_type_id = ct.id
        LEFT JOIN barrel_volumes bv ON ps.barrel_volume_id = bv.id
        LEFT JOIN barrel_discount_types bdt ON ps.barrel_discount_type_id = bdt.id
+       LEFT JOIN free_barrels_options fbo ON ps.free_barrels_id = fbo.id
        LEFT JOIN users u ON ps.user_id = u.id
        WHERE ps.id = $1`,
       [req.params.id]
@@ -132,7 +134,7 @@ const crear = async (req, res) => {
       plant_id, client_code, client_name, address, contact_person,
       contact_phone, call_schedule, other_brands_text,
       contract_type_id, barrel_volume_id, barrel_discount_type_id,
-      service_rating, notes,
+      free_barrels_id, notes,
     } = req.body;
 
     // Parsear arrays que pueden llegar como JSON string (desde FormData)
@@ -145,7 +147,6 @@ const crear = async (req, res) => {
     };
 
     const current_brands = parseArray(req.body.current_brands);
-    const improvement_points = parseArray(req.body.improvement_points);
     const interest_brands = parseArray(req.body.interest_brands);
     const proposal_priorities = parseArray(req.body.proposal_priorities);
 
@@ -154,17 +155,16 @@ const crear = async (req, res) => {
         user_id, plant_id, client_code, client_name, address, contact_person,
         contact_phone, call_schedule, current_brands, other_brands_text,
         contract_type_id, barrel_volume_id, barrel_discount_type_id,
-        service_rating, improvement_points, interest_brands,
-        proposal_priorities, notes
+        free_barrels_id, interest_brands, proposal_priorities, notes
       ) VALUES (
-        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18
+        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17
       ) RETURNING *`,
       [
         req.usuario.id, plant_id, client_code || null, client_name, address,
         contact_person, contact_phone, call_schedule,
         JSON.stringify(current_brands), other_brands_text || null,
         contract_type_id, barrel_volume_id, barrel_discount_type_id,
-        service_rating || null, JSON.stringify(improvement_points),
+        free_barrels_id,
         JSON.stringify(interest_brands), JSON.stringify(proposal_priorities),
         notes || null,
       ]
@@ -207,10 +207,10 @@ const crear = async (req, res) => {
     const contractResult = await pool.query('SELECT name FROM contract_types WHERE id = $1', [contract_type_id]);
     const volumeResult = await pool.query('SELECT name FROM barrel_volumes WHERE id = $1', [barrel_volume_id]);
     const discountResult = await pool.query('SELECT name FROM barrel_discount_types WHERE id = $1', [barrel_discount_type_id]);
+    const freeBarrelsResult = await pool.query('SELECT name FROM free_barrels_options WHERE id = $1', [free_barrels_id]);
 
     // Resolver nombres de arrays JSONB
     const brandsResult = await pool.query('SELECT name FROM beer_brands WHERE id = ANY($1)', [current_brands]);
-    const improvResult = await pool.query('SELECT name FROM improvement_points WHERE id = ANY($1)', [improvement_points]);
     const interestResult = await pool.query('SELECT name FROM interest_brands WHERE id = ANY($1)', [interest_brands]);
     const priorityResult = await pool.query('SELECT name FROM proposal_priorities WHERE id = ANY($1)', [proposal_priorities]);
 
@@ -223,8 +223,8 @@ const crear = async (req, res) => {
           contract_type_name: contractResult.rows[0]?.name,
           barrel_volume_name: volumeResult.rows[0]?.name,
           barrel_discount_type_name: discountResult.rows[0]?.name,
+          free_barrels_name: freeBarrelsResult.rows[0]?.name,
           current_brands_text: brandsResult.rows.map(r => r.name).join(', '),
-          improvement_points_text: improvResult.rows.map(r => r.name).join(', '),
           interest_brands_text: interestResult.rows.map(r => r.name).join(', '),
           proposal_priorities_text: priorityResult.rows.map(r => r.name).join(', '),
         },

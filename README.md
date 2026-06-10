@@ -218,6 +218,7 @@ client-register-app/
 - Gestión de plantas con emails de notificación (visibles en tabla)
 - Consulta de respuestas con filtros, detalle expandible y exportación a Excel
 - Gestión de prospecciones de cerveza: listado con filtros (planta, fechas), detalle expandible y exportación a Excel con columnas ID, FECHA, PLANTA, CLIENTE, REGISTRADO POR, VOLUMEN BARRILES/SEMANA, MARCA
+- Maestro `free_barrels_options` para la pregunta "Actualmente con tu proveedor, ¿tienes barriles sin cargo?" (gestionable desde Admin > Maestros Prospección > Barriles Sin Cargo)
 - Log de auditoría con filtros por usuario, acción, entidad y rango de fechas
 
 ### Seguridad

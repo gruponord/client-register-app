@@ -24,7 +24,7 @@ const menuItems = [
       { path: '/admin/maestros/contract_types', label: 'Tipos Contrato' },
       { path: '/admin/maestros/barrel_volumes', label: 'Volúmenes Barril' },
       { path: '/admin/maestros/barrel_discount_types', label: 'Tipos Descuento Barril' },
-      { path: '/admin/maestros/improvement_points', label: 'Puntos de Mejora' },
+      { path: '/admin/maestros/free_barrels_options', label: 'Barriles Sin Cargo' },
       { path: '/admin/maestros/interest_brands', label: 'Marcas Interés' },
       { path: '/admin/maestros/proposal_priorities', label: 'Prioridades Propuesta' },
     ],
