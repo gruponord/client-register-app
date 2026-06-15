@@ -13,6 +13,10 @@ const plantsRoutes = require('./routes/plants.routes');
 const submissionsRoutes = require('./routes/submissions.routes');
 const auditRoutes = require('./routes/audit.routes');
 const prospectingRoutes = require('./routes/prospecting.routes');
+const utilitiesRoutes = require('./routes/utilities.routes');
+const plvCompaniesRoutes = require('./routes/plvCompanies.routes');
+const plvArticlesRoutes = require('./routes/plvArticles.routes');
+const plvRoutes = require('./routes/plv.routes');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -44,6 +48,10 @@ app.use('/api/plants', plantsRoutes);
 app.use('/api/submissions', submissionsRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/prospecting', prospectingRoutes);
+app.use('/api/utilities', utilitiesRoutes);
+app.use('/api/plv-companies', plvCompaniesRoutes);
+app.use('/api/plv-articles', plvArticlesRoutes);
+app.use('/api/plv', plvRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

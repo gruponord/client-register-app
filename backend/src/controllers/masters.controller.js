@@ -15,6 +15,8 @@ const TABLAS_PERMITIDAS = [
   'interest_brands',
   'proposal_priorities',
   'free_barrels_options',
+  'plv_brands',
+  'plv_groups',
 ];
 
 const validarTabla = (tabla) => {

@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import FormField from '../components/FormField';
 
-const ProspectingFormPage = ({ onCambiarFormulario }) => {
+const ProspectingFormPage = ({ onCambiarFormulario, permitidas = [] }) => {
   const navigate = useNavigate();
   const { usuario, cerrarSesion } = useAuth();
   const [maestros, setMaestros] = useState({
@@ -221,9 +221,22 @@ const ProspectingFormPage = ({ onCambiarFormulario }) => {
           </div>
           <div className="flex items-center justify-between mt-1">
             <h1 className="text-sm sm:text-lg font-bold text-amber-700">Prospección de Cliente de Cerveza</h1>
-            <button onClick={handleCambiar} className="text-xs sm:text-sm text-blue-600 hover:text-blue-800 underline">
-              Cambiar a Alta de Cliente
-            </button>
+            <div className="space-x-3">
+              {permitidas.includes('altas') && (
+                <button onClick={handleCambiar} className="text-xs sm:text-sm text-blue-600 hover:text-blue-800 underline">
+                  Cambiar a Alta de Cliente
+                </button>
+              )}
+              {permitidas.includes('plv') && onCambiarFormulario && (
+                <button onClick={() => {
+                  if (!tienesDatos() || window.confirm('Si cambias de formulario perderás los datos introducidos. ¿Estás seguro?')) {
+                    onCambiarFormulario('plv');
+                  }
+                }} className="text-xs sm:text-sm text-emerald-600 hover:text-emerald-800 underline">
+                  Cambiar a Petición PLV
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>

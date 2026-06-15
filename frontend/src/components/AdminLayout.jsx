@@ -29,8 +29,18 @@ const menuItems = [
       { path: '/admin/maestros/proposal_priorities', label: 'Prioridades Propuesta' },
     ],
   },
+  {
+    label: 'Maestros PLV',
+    children: [
+      { path: '/admin/plv/empresas', label: 'Empresas PLV' },
+      { path: '/admin/maestros/plv_groups', label: 'Grupos PLV' },
+      { path: '/admin/maestros/plv_brands', label: 'Marcas PLV' },
+      { path: '/admin/plv/articulos', label: 'Artículos PLV' },
+    ],
+  },
   { path: '/admin/respuestas', label: 'Respuestas Altas' },
   { path: '/admin/prospecciones', label: 'Prospecciones' },
+  { path: '/admin/peticiones-plv', label: 'Peticiones PLV' },
   { path: '/admin/auditoria', label: 'Auditoría' },
 ];
 

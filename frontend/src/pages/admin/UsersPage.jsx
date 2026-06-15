@@ -3,16 +3,24 @@ import api from '../../services/api';
 
 const UsersPage = () => {
   const [usuarios, setUsuarios] = useState([]);
+  const [utilidades, setUtilidades] = useState([]);
+  const [empresasPlv, setEmpresasPlv] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [modal, setModal] = useState({ abierto: false, editando: null });
-  const [form, setForm] = useState({ username: '', password: '', email: '', full_name: '', role: 'comercial' });
+  const [form, setForm] = useState({ username: '', password: '', email: '', full_name: '', role: 'comercial', utilities: [], plv_company_ids: [] });
   const [error, setError] = useState('');
 
   const cargar = async () => {
     setCargando(true);
     try {
-      const { data } = await api.get('/users');
-      setUsuarios(data);
+      const [usersRes, utilsRes, plvCompaniesRes] = await Promise.all([
+        api.get('/users'),
+        api.get('/utilities'),
+        api.get('/plv-companies'),
+      ]);
+      setUsuarios(usersRes.data);
+      setUtilidades(utilsRes.data);
+      setEmpresasPlv(plvCompaniesRes.data);
     } catch (err) {
       console.error('Error:', err);
     } finally {
@@ -23,26 +31,59 @@ const UsersPage = () => {
   useEffect(() => { cargar(); }, []);
 
   const abrirCrear = () => {
-    setForm({ username: '', password: '', email: '', full_name: '', role: 'comercial' });
+    setForm({ username: '', password: '', email: '', full_name: '', role: 'comercial', utilities: [], plv_company_ids: [] });
     setModal({ abierto: true, editando: null });
     setError('');
   };
 
   const abrirEditar = (u) => {
-    setForm({ username: u.username, email: u.email || '', full_name: u.full_name || '', role: u.role });
+    setForm({
+      username: u.username,
+      email: u.email || '',
+      full_name: u.full_name || '',
+      role: u.role,
+      utilities: Array.isArray(u.utilities) ? u.utilities : [],
+      plv_company_ids: Array.isArray(u.plv_company_ids) ? u.plv_company_ids : [],
+    });
     setModal({ abierto: true, editando: u });
     setError('');
+  };
+
+  const toggleUtilidad = (code) => {
+    setForm((prev) => {
+      const yaTiene = prev.utilities.includes(code);
+      const nuevas = yaTiene ? prev.utilities.filter((c) => c !== code) : [...prev.utilities, code];
+      // Si quita la utilidad PLV, limpiamos también las empresas asignadas.
+      const nuevasEmpresas = (code === 'plv' && yaTiene) ? [] : prev.plv_company_ids;
+      return { ...prev, utilities: nuevas, plv_company_ids: nuevasEmpresas };
+    });
+  };
+
+  const toggleEmpresaPlv = (companyId) => {
+    setForm((prev) => ({
+      ...prev,
+      plv_company_ids: prev.plv_company_ids.includes(companyId)
+        ? prev.plv_company_ids.filter((id) => id !== companyId)
+        : [...prev.plv_company_ids, companyId],
+    }));
   };
 
   const guardar = async (e) => {
     e.preventDefault();
     setError('');
     try {
+      const payloadBase = {
+        username: form.username,
+        email: form.email,
+        full_name: form.full_name,
+        role: form.role,
+        utilities: form.utilities,
+        plv_company_ids: form.utilities.includes('plv') ? form.plv_company_ids : [],
+      };
       if (modal.editando) {
-        const datos = { username: form.username, email: form.email, full_name: form.full_name, role: form.role };
-        await api.put(`/users/${modal.editando.id}`, datos);
+        await api.put(`/users/${modal.editando.id}`, payloadBase);
       } else {
-        await api.post('/users', form);
+        await api.post('/users', { ...payloadBase, password: form.password });
       }
       setModal({ abierto: false, editando: null });
       cargar();
@@ -77,13 +118,14 @@ const UsersPage = () => {
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Usuario</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rol</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Utilidades</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
             {cargando ? (
-              <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-500">Cargando...</td></tr>
+              <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-500">Cargando...</td></tr>
             ) : usuarios.map((u) => (
               <tr key={u.id} className="hover:bg-gray-50">
                 <td className="px-4 py-3 text-sm">{u.full_name || '-'}</td>
@@ -93,6 +135,24 @@ const UsersPage = () => {
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${u.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'}`}>
                     {u.role}
                   </span>
+                </td>
+                <td className="px-4 py-3 text-sm">
+                  {u.role === 'admin' ? (
+                    <span className="text-xs text-gray-500 italic">Todas</span>
+                  ) : Array.isArray(u.utilities) && u.utilities.length > 0 ? (
+                    <div className="flex flex-wrap gap-1">
+                      {u.utilities.map((c) => {
+                        const ut = utilidades.find((x) => x.code === c);
+                        return (
+                          <span key={c} className="px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-700">
+                            {ut?.label || c}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <span className="text-xs text-gray-400">Ninguna</span>
+                  )}
                 </td>
                 <td className="px-4 py-3 text-sm">
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${u.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
@@ -150,6 +210,57 @@ const UsersPage = () => {
                   <option value="admin">Administrador</option>
                 </select>
               </div>
+
+              {form.role !== 'admin' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Utilidades permitidas</label>
+                  <div className="space-y-2 border border-gray-200 rounded-lg p-3 bg-gray-50">
+                    {utilidades.length === 0 ? (
+                      <p className="text-xs text-gray-500">No hay utilidades disponibles.</p>
+                    ) : utilidades.map((u) => (
+                      <label key={u.code} className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={form.utilities.includes(u.code)}
+                          onChange={() => toggleUtilidad(u.code)}
+                          className="w-4 h-4 text-blue-600 rounded"
+                        />
+                        <span className="text-sm">{u.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Si no marcas ninguna, el usuario no podrá usar ningún formulario.
+                  </p>
+                </div>
+              )}
+
+              {form.role !== 'admin' && form.utilities.includes('plv') && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Empresas PLV permitidas</label>
+                  <div className="space-y-2 border border-emerald-200 rounded-lg p-3 bg-emerald-50 max-h-48 overflow-y-auto">
+                    {empresasPlv.length === 0 ? (
+                      <p className="text-xs text-gray-500">Aún no hay empresas PLV dadas de alta.</p>
+                    ) : empresasPlv.map((e) => (
+                      <label key={e.id} className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={form.plv_company_ids.includes(e.id)}
+                          onChange={() => toggleEmpresaPlv(e.id)}
+                          disabled={!e.active}
+                          className="w-4 h-4 text-emerald-600 rounded"
+                        />
+                        <span className={`text-sm ${e.active ? '' : 'text-gray-400 line-through'}`}>
+                          {e.code} — {e.name}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    El usuario solo podrá pedir PLV a las empresas marcadas.
+                  </p>
+                </div>
+              )}
 
               <div className="flex justify-end gap-3 pt-2">
                 <button type="button" onClick={() => setModal({ abierto: false, editando: null })}

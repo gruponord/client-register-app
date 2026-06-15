@@ -16,6 +16,8 @@ const TITULOS = {
   free_barrels_options: 'Barriles Sin Cargo',
   interest_brands: 'Marcas de Interés',
   proposal_priorities: 'Prioridades de Propuesta',
+  plv_brands: 'Marcas PLV',
+  plv_groups: 'Grupos PLV',
 };
 
 const MastersPage = () => {

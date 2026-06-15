@@ -1,6 +1,6 @@
 const { Router } = require('express');
 const rateLimit = require('express-rate-limit');
-const { verificarToken, soloAdmin } = require('../middlewares/auth');
+const { verificarToken, soloAdmin, requiereUtilidad } = require('../middlewares/auth');
 const { validarSubmission } = require('../middlewares/validate');
 const upload = require('../middlewares/upload');
 const submissionsController = require('../controllers/submissions.controller');
@@ -17,9 +17,10 @@ const submissionLimiter = rateLimit({
 router.get('/', verificarToken, soloAdmin, submissionsController.listar);
 router.get('/:id', verificarToken, submissionsController.obtener);
 
-// Crear - cualquier usuario autenticado
+// Crear - autenticado + utilidad 'altas' (admins pasan siempre)
 router.post('/',
   verificarToken,
+  requiereUtilidad('altas'),
   submissionLimiter,
   upload.array('files', 20),
   validarSubmission,

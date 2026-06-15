@@ -219,6 +219,8 @@ client-register-app/
 - Consulta de respuestas con filtros, detalle expandible y exportación a Excel
 - Gestión de prospecciones de cerveza: listado con filtros (planta, fechas), detalle expandible y exportación a Excel con columnas ID, FECHA, PLANTA, CLIENTE, REGISTRADO POR, VOLUMEN BARRILES/SEMANA, MARCA
 - Maestro `free_barrels_options` para la pregunta "Actualmente con tu proveedor, ¿tienes barriles sin cargo?" (gestionable desde Admin > Maestros Prospección > Barriles Sin Cargo)
+- Sistema de permisos por utilidad: cada usuario tiene marcadas qué utilidades puede usar (Alta de Clientes, Prospección de Cerveza, Petición PLV). El admin siempre ve todas.
+- Utilidad **Petición PLV**: formulario para pedir material PLV a una empresa del grupo. Catálogo por empresa con grupos (ESTABLECIMIENTO, EVENTOS) y marcas. Asignación multi-empresa por usuario. Email destinatario por empresa. Listado y detalle desde admin (Peticiones PLV).
 - Log de auditoría con filtros por usuario, acción, entidad y rango de fechas
 
 ### Seguridad
@@ -253,6 +255,13 @@ client-register-app/
 | GET | /api/prospecting/export | Exportar prospecciones filtradas (sin paginar) | Admin |
 | GET | /api/prospecting/:id | Detalle de prospección con ficheros | Admin |
 | GET/POST/DELETE | /api/plants/:id/prospecting-emails | Gestión emails prospección de planta | Admin |
+| GET | /api/utilities | Catálogo de utilidades disponibles | Autenticado |
+| GET/POST/PUT | /api/plv-companies | CRUD empresas PLV (delegaciones del grupo) | Admin (escritura) |
+| GET/POST/DELETE | /api/plv-companies/:id/emails | Emails destinatarios por empresa PLV | Admin |
+| GET/POST/PUT | /api/plv-articles | CRUD catálogo de artículos PLV | Admin (escritura) |
+| POST | /api/plv | Crear petición PLV | Autenticado + utilidad `plv` |
+| GET | /api/plv | Listar peticiones PLV (paginado + filtros) | Admin |
+| GET | /api/plv/:id | Detalle de petición PLV con líneas | Admin |
 | GET | /api/audit | Log de auditoría (paginado + filtros) | Admin |
 | GET | /api/health | Health check | Público |
 

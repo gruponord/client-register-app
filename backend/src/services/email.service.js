@@ -201,4 +201,114 @@ const enviarEmailProspecting = async ({ submission, plantaNombre, archivos, emai
   }
 };
 
-module.exports = { enviarEmailSubmission, enviarEmailProspecting };
+const construirTablaPlvHTML = (submission) => {
+  const formatDate = (d) => {
+    if (!d) return '-';
+    const dt = new Date(d);
+    if (isNaN(dt.getTime())) return d;
+    return dt.toLocaleDateString('es-ES');
+  };
+
+  // Agrupar lineas por group_name (preservando orden ya ordenado por SQL)
+  const grupos = {};
+  for (const l of submission.lines) {
+    const g = l.group_name || 'Sin grupo';
+    if (!grupos[g]) grupos[g] = [];
+    grupos[g].push(l);
+  }
+
+  const seccionesGrupos = Object.entries(grupos).map(([nombre, lineas]) => {
+    const filas = lineas.map((l) => `
+      <tr>
+        <td style="padding:6px 10px;border:1px solid #ddd;">${l.brand_name || '-'}</td>
+        <td style="padding:6px 10px;border:1px solid #ddd;">${l.article_code}</td>
+        <td style="padding:6px 10px;border:1px solid #ddd;">${l.article_description}</td>
+        <td style="padding:6px 10px;border:1px solid #ddd;text-align:center;">${l.units}</td>
+        <td style="padding:6px 10px;border:1px solid #ddd;">${formatDate(l.delivery_date)}</td>
+        <td style="padding:6px 10px;border:1px solid #ddd;">${formatDate(l.return_date)}</td>
+      </tr>
+    `).join('');
+    return `
+      <h3 style="color:#003278;margin-top:24px;margin-bottom:8px;">${nombre}</h3>
+      <table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead>
+          <tr style="background:#f8f9fa;">
+            <th style="padding:6px 10px;border:1px solid #ddd;text-align:left;">Marca</th>
+            <th style="padding:6px 10px;border:1px solid #ddd;text-align:left;">Cód. Art.</th>
+            <th style="padding:6px 10px;border:1px solid #ddd;text-align:left;">Descripción</th>
+            <th style="padding:6px 10px;border:1px solid #ddd;text-align:center;">Unidades</th>
+            <th style="padding:6px 10px;border:1px solid #ddd;text-align:left;">Entrega</th>
+            <th style="padding:6px 10px;border:1px solid #ddd;text-align:left;">Retirada</th>
+          </tr>
+        </thead>
+        <tbody>${filas}</tbody>
+      </table>
+    `;
+  }).join('');
+
+  const cabecera = `
+    <table style="width:100%;border-collapse:collapse;margin-top:8px;font-size:13px;">
+      <tr>
+        <td style="padding:6px 10px;border:1px solid #ddd;background:#f8f9fa;font-weight:bold;width:200px;">Empresa</td>
+        <td style="padding:6px 10px;border:1px solid #ddd;">${submission.company_name}</td>
+      </tr>
+      <tr>
+        <td style="padding:6px 10px;border:1px solid #ddd;background:#f8f9fa;font-weight:bold;">Fecha solicitud</td>
+        <td style="padding:6px 10px;border:1px solid #ddd;">${formatDate(submission.request_date)}</td>
+      </tr>
+      <tr>
+        <td style="padding:6px 10px;border:1px solid #ddd;background:#f8f9fa;font-weight:bold;">Código cliente</td>
+        <td style="padding:6px 10px;border:1px solid #ddd;">${submission.client_code}</td>
+      </tr>
+      <tr>
+        <td style="padding:6px 10px;border:1px solid #ddd;background:#f8f9fa;font-weight:bold;">Nombre cliente</td>
+        <td style="padding:6px 10px;border:1px solid #ddd;">${submission.client_name}</td>
+      </tr>
+      ${submission.notes ? `
+      <tr>
+        <td style="padding:6px 10px;border:1px solid #ddd;background:#f8f9fa;font-weight:bold;vertical-align:top;">Notas</td>
+        <td style="padding:6px 10px;border:1px solid #ddd;white-space:pre-wrap;">${submission.notes}</td>
+      </tr>` : ''}
+    </table>
+  `;
+
+  return `
+    <div style="font-family:Arial,sans-serif;max-width:900px;margin:0 auto;">
+      <div style="background:#003278;padding:16px 24px;border-radius:8px 8px 0 0;">
+        <img src="cid:logo_gnp" alt="Grupo Nord Pirineus" style="height:40px;" />
+      </div>
+      <div style="padding:20px 24px;border:1px solid #ddd;border-top:none;">
+        <h2 style="color:#003278;margin-top:0;">Petición PLV</h2>
+        ${cabecera}
+        ${seccionesGrupos}
+        <p style="margin-top:20px;color:#666;font-size:12px;">
+          Este email ha sido generado automáticamente por el sistema de petición PLV — Grupo Nord Pirineus.
+        </p>
+      </div>
+    </div>
+  `;
+};
+
+const enviarEmailPlv = async ({ submission, emailsEmpresa, emailUsuario }) => {
+  const transporter = crearTransporter();
+  const logoPath = path.resolve(__dirname, '../../logo_GNP.jpg');
+  const adjuntos = [{ filename: 'logo_GNP.jpg', path: logoPath, cid: 'logo_gnp' }];
+
+  const mailOptions = {
+    from: process.env.SMTP_FROM,
+    to: emailsEmpresa.join(', '),
+    cc: emailUsuario || undefined,
+    subject: `Petición PLV — ${submission.client_name} — ${submission.company_name}`,
+    html: construirTablaPlvHTML(submission),
+    attachments: adjuntos,
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log('Email de PLV enviado correctamente');
+  } catch (err) {
+    console.error('Error al enviar email PLV:', err);
+  }
+};
+
+module.exports = { enviarEmailSubmission, enviarEmailProspecting, enviarEmailPlv };

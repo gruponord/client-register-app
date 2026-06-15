@@ -15,6 +15,11 @@ import MastersPage from './pages/admin/MastersPage';
 import PlantsPage from './pages/admin/PlantsPage';
 import AuditPage from './pages/admin/AuditPage';
 import SubmissionsPage from './pages/admin/SubmissionsPage';
+import PlvCompaniesPage from './pages/admin/PlvCompaniesPage';
+import PlvArticlesPage from './pages/admin/PlvArticlesPage';
+import PlvSubmissionsPage from './pages/admin/PlvSubmissionsPage';
+import PlvFormPage from './pages/PlvFormPage';
+import PlvSuccessPage from './pages/PlvSuccessPage';
 
 function App() {
   return (
@@ -41,6 +46,11 @@ function App() {
               <ProspectingSuccessPage />
             </ProtectedRoute>
           } />
+          <Route path="/exito-plv" element={
+            <ProtectedRoute>
+              <PlvSuccessPage />
+            </ProtectedRoute>
+          } />
 
           {/* Admin - solo rol admin */}
           <Route path="/admin" element={
@@ -54,6 +64,9 @@ function App() {
             <Route path="plantas" element={<PlantsPage />} />
             <Route path="respuestas" element={<SubmissionsPage />} />
             <Route path="prospecciones" element={<ProspectingSubmissionsPage />} />
+            <Route path="plv/empresas" element={<PlvCompaniesPage />} />
+            <Route path="plv/articulos" element={<PlvArticlesPage />} />
+            <Route path="peticiones-plv" element={<PlvSubmissionsPage />} />
             <Route path="auditoria" element={<AuditPage />} />
           </Route>
 

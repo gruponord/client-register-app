@@ -1,4 +1,16 @@
 const { body, query, validationResult } = require('express-validator');
+const { CODIGOS_VALIDOS } = require('../config/utilities');
+
+// Helper: comprueba que el valor sea un array de codigos de utilidad validos.
+// Acepta tambien JSON string (compatibilidad con FormData).
+const esUtilidadesValido = (valor) => {
+  let arr = valor;
+  if (typeof valor === 'string') {
+    try { arr = JSON.parse(valor); } catch { return false; }
+  }
+  if (!Array.isArray(arr)) return false;
+  return arr.every((c) => CODIGOS_VALIDOS.includes(c));
+};
 
 // Middleware para ejecutar las validaciones y devolver errores
 const ejecutarValidacion = (req, res, next) => {
@@ -23,6 +35,9 @@ const validarCrearUsuario = [
   body('email').optional({ values: 'falsy' }).isEmail().withMessage('Email no válido'),
   body('full_name').optional().trim().isLength({ max: 100 }),
   body('role').isIn(['admin', 'comercial']).withMessage('Rol debe ser admin o comercial'),
+  body('utilities').optional().custom(esUtilidadesValido).withMessage('Utilidades no válidas'),
+  body('plv_company_ids').optional().isArray().withMessage('plv_company_ids debe ser array'),
+  body('plv_company_ids.*').optional().isInt({ min: 1 }).withMessage('Empresa PLV no válida'),
   ejecutarValidacion,
 ];
 
@@ -33,6 +48,9 @@ const validarEditarUsuario = [
   body('full_name').optional().trim().isLength({ max: 100 }),
   body('role').optional().isIn(['admin', 'comercial']),
   body('active').optional().isBoolean(),
+  body('utilities').optional().custom(esUtilidadesValido).withMessage('Utilidades no válidas'),
+  body('plv_company_ids').optional().isArray().withMessage('plv_company_ids debe ser array'),
+  body('plv_company_ids.*').optional().isInt({ min: 1 }).withMessage('Empresa PLV no válida'),
   ejecutarValidacion,
 ];
 
@@ -104,6 +122,31 @@ const validarProspecting = [
   ejecutarValidacion,
 ];
 
+// Validaciones para peticion PLV
+const validarPlv = [
+  body('company_id').isInt({ min: 1 }).withMessage('Empresa PLV es obligatoria'),
+  body('client_code').trim().notEmpty().isLength({ max: 20 }).withMessage('Código cliente es obligatorio (máx 20 car.)'),
+  body('client_name').trim().notEmpty().isLength({ max: 100 }).withMessage('Nombre cliente es obligatorio (máx 100 car.)'),
+  body('request_date').isISO8601().withMessage('Fecha solicitud no válida'),
+  body('notes').optional({ values: 'falsy' }).trim(),
+  body('lines').isArray({ min: 1 }).withMessage('Debes pedir al menos un artículo'),
+  body('lines.*.article_id').isInt({ min: 1 }).withMessage('Artículo no válido'),
+  body('lines.*.units').isInt({ min: 1 }).withMessage('Unidades debe ser >= 1'),
+  body('lines.*.delivery_date').optional({ values: 'falsy' }).isISO8601().withMessage('Fecha entrega no válida'),
+  body('lines.*.return_date').optional({ values: 'falsy' }).isISO8601().withMessage('Fecha retirada no válida'),
+  ejecutarValidacion,
+];
+
+// Validaciones para articulo PLV (admin)
+const validarPlvArticle = [
+  body('company_id').isInt({ min: 1 }).withMessage('Empresa es obligatoria'),
+  body('group_id').isInt({ min: 1 }).withMessage('Grupo es obligatorio'),
+  body('brand_id').optional({ values: 'null' }).isInt({ min: 1 }).withMessage('Marca no válida'),
+  body('code').trim().notEmpty().isLength({ max: 20 }).withMessage('Código es obligatorio'),
+  body('description').trim().notEmpty().isLength({ max: 200 }).withMessage('Descripción es obligatoria'),
+  ejecutarValidacion,
+];
+
 // Validaciones para filtros de auditoría
 const validarFiltrosAuditoria = [
   query('user_id').optional().isInt(),
@@ -121,6 +164,8 @@ module.exports = {
   validarMaestro,
   validarSubmission,
   validarProspecting,
+  validarPlv,
+  validarPlvArticle,
   validarFiltrosAuditoria,
   ejecutarValidacion,
 };

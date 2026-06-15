@@ -18,7 +18,7 @@ const generarHoras = () => {
 
 const HORAS = generarHoras();
 
-const FormPage = ({ onCambiarFormulario }) => {
+const FormPage = ({ onCambiarFormulario, permitidas = [] }) => {
   const navigate = useNavigate();
   const { usuario, cerrarSesion } = useAuth();
   const [maestros, setMaestros] = useState({
@@ -232,11 +232,22 @@ const FormPage = ({ onCambiarFormulario }) => {
           </div>
           <div className="flex items-center justify-between mt-1">
             <h1 className="text-sm sm:text-lg font-bold text-gray-800">Registro de Alta de Cliente</h1>
-            {onCambiarFormulario && (
-              <button onClick={handleCambiarFormulario} className="text-xs sm:text-sm text-amber-600 hover:text-amber-800 underline">
-                Cambiar a Prospección
-              </button>
-            )}
+            <div className="space-x-3">
+              {onCambiarFormulario && permitidas.includes('prospecting') && (
+                <button onClick={handleCambiarFormulario} className="text-xs sm:text-sm text-amber-600 hover:text-amber-800 underline">
+                  Cambiar a Prospección
+                </button>
+              )}
+              {onCambiarFormulario && permitidas.includes('plv') && (
+                <button onClick={() => {
+                  if (!tienesDatos() || window.confirm('Si cambias de formulario perderás los datos introducidos. ¿Estás seguro?')) {
+                    onCambiarFormulario('plv');
+                  }
+                }} className="text-xs sm:text-sm text-emerald-600 hover:text-emerald-800 underline">
+                  Cambiar a Petición PLV
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>

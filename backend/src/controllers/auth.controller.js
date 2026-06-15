@@ -58,6 +58,12 @@ const login = async (req, res) => {
       ip: req.ip,
     });
 
+    const plvRes = await pool.query(
+      'SELECT company_id FROM plv_user_companies WHERE user_id = $1 ORDER BY company_id',
+      [usuario.id]
+    );
+    const plvIds = plvRes.rows.map((r) => r.company_id);
+
     res.json({
       ...tokens,
       usuario: {
@@ -66,6 +72,8 @@ const login = async (req, res) => {
         email: usuario.email,
         full_name: usuario.full_name,
         role: usuario.role,
+        utilities: usuario.utilities || [],
+        plv_company_ids: plvIds,
       },
     });
   } catch (err) {
@@ -99,13 +107,20 @@ const refreshToken = async (req, res) => {
 const me = async (req, res) => {
   try {
     const result = await pool.query(
-      'SELECT id, username, email, full_name, role FROM users WHERE id = $1',
+      'SELECT id, username, email, full_name, role, utilities FROM users WHERE id = $1',
       [req.usuario.id]
     );
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Usuario no encontrado' });
     }
-    res.json(result.rows[0]);
+    const plvRes = await pool.query(
+      'SELECT company_id FROM plv_user_companies WHERE user_id = $1 ORDER BY company_id',
+      [req.usuario.id]
+    );
+    res.json({
+      ...result.rows[0],
+      plv_company_ids: plvRes.rows.map((r) => r.company_id),
+    });
   } catch (err) {
     console.error('Error en me:', err);
     res.status(500).json({ error: 'Error interno del servidor' });

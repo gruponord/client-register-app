@@ -1,5 +1,5 @@
 const { Router } = require('express');
-const { verificarToken, soloAdmin } = require('../middlewares/auth');
+const { verificarToken, soloAdmin, requiereUtilidad } = require('../middlewares/auth');
 const { validarProspecting } = require('../middlewares/validate');
 const upload = require('../middlewares/upload');
 const rateLimit = require('express-rate-limit');
@@ -13,8 +13,8 @@ const limiteCrear = rateLimit({
   message: { error: 'Demasiadas solicitudes, intente de nuevo más tarde' },
 });
 
-// Crear prospección (autenticado, con ficheros opcionales)
-router.post('/', verificarToken, limiteCrear, upload.array('files', 20), validarProspecting, prospectingController.crear);
+// Crear prospección (autenticado + utilidad 'prospecting'; admins pasan siempre)
+router.post('/', verificarToken, requiereUtilidad('prospecting'), limiteCrear, upload.array('files', 20), validarProspecting, prospectingController.crear);
 
 // Listar y detalle (solo admin)
 router.get('/', verificarToken, soloAdmin, prospectingController.listar);
