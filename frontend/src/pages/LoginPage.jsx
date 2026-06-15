@@ -34,7 +34,7 @@ const LoginPage = () => {
       <div className="bg-white rounded-xl shadow-lg p-8 w-full max-w-md">
         <div className="text-center mb-8">
           <img src="/logo_GNP.jpg" alt="Grupo Nord Pirineus" className="h-14 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-gray-800">Alta de Clientes</h1>
+          <h1 className="text-2xl font-bold text-gray-800">Utilidades de vendedores</h1>
           <p className="text-gray-500 mt-2">Inicia sesión para continuar</p>
         </div>
 
