@@ -17,6 +17,7 @@ const utilitiesRoutes = require('./routes/utilities.routes');
 const plvCompaniesRoutes = require('./routes/plvCompanies.routes');
 const plvArticlesRoutes = require('./routes/plvArticles.routes');
 const plvRoutes = require('./routes/plv.routes');
+const syncRoutes = require('./routes/sync.routes');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -34,6 +35,13 @@ if (!fs.existsSync(uploadDir)) {
 // Middlewares globales
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 app.use(cors({ origin: process.env.CORS_ORIGIN || '*', credentials: true }));
+
+// Receptor del Sincronizador GNP (Sincronizador GNP/CONTRATO-SYNC.md).
+// Se monta ANTES del express.json() global a proposito: los lotes llegan
+// comprimidos y pesan mas que el limite por defecto de 100kb, asi que el router
+// trae su propio parser. Montado despues, este los rechazaria con un 413.
+app.use('/api/sync/v1', syncRoutes);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
