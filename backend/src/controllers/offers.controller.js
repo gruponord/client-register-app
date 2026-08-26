@@ -296,10 +296,15 @@ const crear = async (req, res) => {
       });
       await cli.query(
         `INSERT INTO offer_items (offer_id, articulo_id, descripcion, unidad, peso_neto,
-                                  unidades_caja, precio_unidad, dto_pct, dto_editado, orden)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+                                  unidades_caja, precio_tarifa, precio_unidad, dto_pct,
+                                  dto_editado, orden)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+        // precio_tarifa es el precio_vta del ERP tal cual (por kilo si la unidad
+        // es K); precio_unidad es el derivado. Se guardan los dos: el primero
+        // para poder reproducir las seis cifras del documento, el segundo porque
+        // es lo que se consulta al listar ofertas.
         [offerId, p.a.articulo_id, p.a.descripcion, p.a.unidad, p.a.peso_neto,
-          p.a.unidades_caja, calc.precio_unidad, p.dto, p.editado, orden++]
+          p.a.unidades_caja, p.a.precio_vta, calc.precio_unidad, p.dto, p.editado, orden++]
       );
     }
     await cli.query('COMMIT');
@@ -358,18 +363,16 @@ const montarOferta = async (id, usuario) => {
       unidad: l.unidad,
       unidades_caja: l.unidades_caja,
       dto_editado: l.dto_editado,
+      // Se reproduce desde la TARIFA guardada, no desde el precio de unidad:
+      // asi el precio por kilo sale exacto en vez de tener que dividir, y las
+      // seis cifras salen identicas a las del dia que se emitio.
       ...calcularLinea({
         unidad: l.unidad,
-        // Cuidado: lo guardado es el precio de la UNIDAD, con el peso ya
-        // aplicado. Se pasa peso_neto a null para no multiplicarlo dos veces, y
-        // es_kilo se recupera del campo unidad.
-        precio_vta: l.precio_unidad,
-        peso_neto: null,
+        precio_vta: l.precio_tarifa !== null ? l.precio_tarifa : l.precio_unidad,
+        peso_neto: l.peso_neto,
         unidades_caja: l.unidades_caja,
         dto_pct: l.dto_pct,
       }),
-      es_kilo: /K/i.test(String(l.unidad || '')),
-      peso_neto: l.peso_neto,
     })),
   };
 };

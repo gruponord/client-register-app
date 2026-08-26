@@ -1,4 +1,4 @@
-// Calculo de precios de una linea de oferta.
+// Calculo de precios de una linea del listado.
 //
 // Vive aparte porque lo usan tres sitios y tienen que coincidir exactamente: el
 // catalogo (para pintar la linea), el guardado de la oferta y el PDF. Si el PDF
@@ -6,8 +6,8 @@
 //
 // El frontend recalcula al vuelo cuando el comercial cambia el descuento, pero
 // el numero que vale es el que sale de aqui: al guardar se almacenan
-// `precio_unidad` y `dto_pct`, y todo lo demas se deriva. Asi la oferta impresa
-// hace tres meses se puede reproducir clavada.
+// `precio_unidad` y `dto_pct`, y todo lo demas se deriva. Asi el listado impreso
+// hace tres meses se puede reproducir clavado.
 
 /**
  * Redondeo a centimos.
@@ -30,24 +30,32 @@ const centimos = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
 const esKilo = (unidad) => /K/i.test(String(unidad || ''));
 
 /**
- * Precios de una linea.
+ * Precios de una linea, en las tres presentaciones que salen en el documento:
+ * por kilo (solo si se factura asi), por unidad y por caja.
  *
- * Cuando la unidad es K, `precio_vta` del ERP es el precio POR KILO, y cada
- * unidad pesa `peso_neto`: un jamon de 7,5 kg a 26,95 el kilo son 202,13 la
+ * Cuando la unidad es K, `precio_vta` del ERP es el precio POR KILO y cada
+ * unidad pesa `peso_neto`: un jamon de 5,5 kg a 26,95 el kilo son 148,23 la
  * pieza. Cuando es U, `precio_vta` ya es el precio de la unidad.
  *
- * CADA PASO SE REDONDEA ANTES DE ALIMENTAR AL SIGUIENTE, y es deliberado:
+ * CADA IMPORTE SE DERIVA DEL ANTERIOR YA REDONDEADO:
  *
- *   precio_unidad        = redondeo(tarifa x peso)
- *   precio_final_unidad  = redondeo(precio_unidad x (1 - dto))
- *   precio_final_caja    = redondeo(precio_final_unidad x unidades)
+ *   precio_kilo         = redondeo(tarifa)                    (solo si es K)
+ *   precio_unidad       = redondeo(precio_kilo x peso)   o    redondeo(tarifa)
+ *   precio_caja         = redondeo(precio_unidad x unidades)
+ *   final_unidad        = redondeo(precio_unidad x (1 - dto))
+ *   final_caja          = redondeo(final_unidad x unidades)
+ *   final_kilo          = redondeo(precio_kilo x (1 - dto))
  *
- * Encadenarlo asi da hasta un centimo de diferencia frente a calcularlo todo
- * con precision plena, y aun asi es lo correcto aqui: el documento se entrega
- * en mano y el cliente lo comprueba con la calculadora del movil. Si pone
- * "2,87 €" y "5%" y luego "2,72 €", el cliente hace 2,87 x 0,95 = 2,73 y cree
- * que la aplicacion se equivoca. Que las cuentas del papel salgan vale mas que
- * el ultimo centimo de precision interna.
+ * Se pierde hasta un centimo frente a calcularlo todo con precision plena, y aun
+ * asi es lo correcto: el documento se entrega en mano y el cliente lo comprueba
+ * con la calculadora del movil. Si pone "2,87 €" y "5 %" y luego "2,72 €", el
+ * cliente hace 2,87 x 0,95 = 2,73 y cree que la aplicacion se equivoca.
+ *
+ * Con tres presentaciones y dos centimos de resolucion no se puede hacer que
+ * TODAS las relaciones cuadren a la vez. Se garantizan las que el cliente va a
+ * comprobar de verdad: unidad = kilo x peso, caja = unidad x unidades, y final =
+ * precio x (1 - dto) en las tres filas. La que puede bailar un centimo es
+ * final_unidad frente a final_kilo x peso, que nadie multiplica.
  *
  * @param {object} l  { unidad, precio_vta, peso_neto, unidades_caja, dto_pct }
  */
@@ -57,31 +65,40 @@ const calcularLinea = (l) => {
   const peso = Number(l.peso_neto) || 0;
   const unidadesCaja = Number(l.unidades_caja) || 0;
   const dto = Number(l.dto_pct) || 0;
+  const factor = 1 - dto / 100;
 
   // Un articulo de kilos sin peso daria 0: se deja el precio por kilo como
   // precio de unidad y se marca, para que la pantalla pueda avisar en vez de
   // ensenar un cero silencioso. Hoy no pasa en ningun articulo vendible.
   const sinPeso = kilo && peso <= 0;
-  // El precio de una unidad, ya redondeado: es lo que se ensena y de lo que
-  // cuelga todo lo demas.
-  const precioUnidad = centimos((kilo && !sinPeso) ? precioVta * peso : precioVta);
+  const conPeso = kilo && !sinPeso;
 
-  const finalUnidad = centimos(precioUnidad * (1 - dto / 100));
+  // El precio por kilo es la base cuando se factura asi, y va redondeado porque
+  // ahora SALE IMPRESO: si se mostrase 8,1568 como 8,16 pero la unidad se
+  // calculase con el valor exacto, el cliente que multiplica por 3,2 kg no
+  // obtendria el precio de unidad que pone al lado.
+  const precioKilo = kilo ? centimos(precioVta) : null;
+  const precioUnidad = conPeso ? centimos(precioKilo * peso) : centimos(precioVta);
+  const precioCaja = unidadesCaja > 0 ? centimos(precioUnidad * unidadesCaja) : null;
+
+  const finalUnidad = centimos(precioUnidad * factor);
   const finalCaja = unidadesCaja > 0 ? centimos(finalUnidad * unidadesCaja) : null;
+  const finalKilo = kilo ? centimos(precioKilo * factor) : null;
 
   return {
     es_kilo: kilo,
-    // Lo que hay en el ERP, SIN redondear: por kilo si es K, por unidad si es U.
-    // No se pasa por centimos() a proposito. El bacon esta a 8,1568 el kilo; si
-    // se mostrase 8,16 junto a un precio de unidad de 26,10, la multiplicacion
-    // por 3,2 kg no cuadraria en el papel. Que redondee quien lo pinte.
-    precio_tarifa: precioVta,
-    // El precio de una unidad antes del descuento (ya multiplicado por el peso).
+    peso_neto: kilo ? peso : null,
+    unidades_caja: unidadesCaja || null,
+    dto_pct: dto,
+
+    precio_kilo: precioKilo,
     precio_unidad: precioUnidad,
+    precio_caja: precioCaja,
+
+    precio_final_kilo: finalKilo,
     precio_final_unidad: finalUnidad,
     precio_final_caja: finalCaja,
-    dto_pct: dto,
-    peso_neto: kilo ? peso : null,
+
     aviso: sinPeso ? 'Artículo en kilos sin peso definido' : null,
   };
 };

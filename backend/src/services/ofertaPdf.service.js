@@ -1,4 +1,4 @@
-// PDF de una oferta de precios.
+// PDF del listado de precios.
 //
 // Sigue las convenciones del pdf.service.js que ya existe: pdfkit, A4, margen
 // 50, el azul corporativo y un Buffer devuelto por promesa. La diferencia es que
@@ -16,72 +16,101 @@ const AZUL = '#003278';
 const GRIS_FILA = '#f8f9fa';
 const GRIS_BORDE = '#dddddd';
 const GRIS_TEXTO = '#666666';
+const GRIS_SUAVE = '#888888';
 
 const MARGEN = 50;
 const ANCHO = 495;          // A4 (595) menos los dos margenes
-const PIE = 780;            // donde empieza el pie de pagina
+const PIE = 770;            // donde empieza el pie de pagina
 
 const LOGOS = path.resolve(__dirname, '../../logos');
 const LOGO_GENERICO = path.resolve(__dirname, '../../logo_GNP.jpg');
+
+/**
+ * Texto legal del listado.
+ *
+ * ⚠️ La primera frase afirma que los precios NO llevan IVA. Es lo habitual en
+ * una tarifa mayorista entre empresas, y es lo que hace el ERP al guardar el
+ * `iva_id` como dato aparte del precio, pero conviene que lo confirme quien
+ * corresponda antes de que salga a un cliente: decir "IVA no incluido" sobre
+ * precios que ya lo llevasen seria un problema de verdad.
+ */
+const LEGAL = [
+  'Precios en euros, IVA no incluido.',
+  'Este listado tiene carácter informativo y no constituye oferta contractual. Los precios y ' +
+  'descuentos indicados pueden variar sin previo aviso y quedan sujetos a confirmación en el ' +
+  'momento de formalizar el pedido.',
+  'Los descuentos reflejados no son acumulables con otras promociones u ofertas vigentes, salvo ' +
+  'indicación expresa. Los portes, envases y depósitos retornables se facturan aparte según las ' +
+  'condiciones generales de venta.',
+  'Documento válido salvo error tipográfico u omisión.',
+];
 
 /** 1234.5 -> "1.234,50 €". Formato espanol, que es el del documento. */
 const eur = (n) => {
   if (n === null || n === undefined) return '—';
   const s = Number(n).toFixed(2).split('.');
-  const enteros = s[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-  return enteros + ',' + s[1] + ' €';
+  return s[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ',' + s[1] + ' €';
 };
 
 /** 5 -> "5 %", 0 -> "—" (un cero no aporta nada y llena la columna de ruido). */
 const pct = (n) => (Number(n) > 0 ? String(Number(n)).replace('.', ',') + ' %' : '—');
 
+/** 3.2 -> "3,2" */
+const num = (n) => String(Number(n)).replace('.', ',');
+
 const fecha = (d) => new Date(d).toLocaleDateString('es-ES',
   { day: '2-digit', month: '2-digit', year: 'numeric' });
 
-// Las columnas del punto 4 del enunciado. La unidad no lleva columna propia:
-// solo dice algo cuando el articulo se factura en kilos, y entonces va como
-// segunda linea bajo la descripcion.
-//
-// Los anchos NO estan puestos a ojo. Se midieron con las metricas de la propia
-// fuente sobre las 1.559 descripciones reales del catalogo y sobre el peor caso
-// de cada columna numerica:
-//
-//   descripcion   maximo real 211pt a 8.5pt (mediana 147)
-//   codigo        28,4pt -- son 6 digitos, aunque el ERP declare varchar(25)
-//   final caja    44,9pt incluso con "99.999,99 €"
-//   titulos       "Precio ud." es el mas ancho con 38,7pt a 8pt negrita
-//
-// Cada columna se dimensiona por el maximo entre su titulo y su peor valor, mas
-// 6pt de aire, y a la descripcion se le da todo lo que sobra. La primera version
-// le daba 175pt y una descripcion real de 40 caracteres se cortaba en silencio,
-// porque el texto va con lineBreak:false.
-const COLS = [
-  { clave: 'articulo_id', titulo: 'Código', x: 0, w: 40 },
-  { clave: 'descripcion', titulo: 'Descripción', x: 40, w: 241 },
-  { clave: 'unidades_caja', titulo: 'Uds/caja', x: 281, w: 40, dcha: true },
-  { clave: 'precio_unidad', titulo: 'Precio ud.', x: 321, w: 46, dcha: true, dinero: true },
-  { clave: 'dto_pct', titulo: 'Dto.', x: 367, w: 34, dcha: true, porcentaje: true },
-  { clave: 'precio_final_unidad', titulo: 'Final ud.', x: 401, w: 42, dcha: true, dinero: true },
-  { clave: 'precio_final_caja', titulo: 'Final caja', x: 443, w: 52, dcha: true, dinero: true },
-];
+/**
+ * Cinco columnas, con varias lineas por articulo.
+ *
+ * Los anchos NO estan puestos a ojo: se midieron con las metricas de la propia
+ * fuente sobre las 1.559 descripciones reales del catalogo (la mas larga son
+ * 211pt a 8,5pt) y sobre el peor caso de cada columna de importes. El texto va
+ * con lineBreak:false, asi que lo que no cabe se corta en silencio, y por eso
+ * cada columna se dimensiona por el maximo entre su titulo y su peor valor.
+ */
+const COLS = {
+  producto: { titulo: 'Producto', x: 0, w: 240 },
+  // 68 y no 62: "99999,9999 kg/u" mide 55,9pt, y Producto tiene holgura de
+  // sobra (la descripcion mas larga del catalogo son 211pt).
+  formato: { titulo: 'Formato', x: 240, w: 68 },
+  precio: { titulo: 'Precio', x: 308, w: 66, dcha: true },
+  dto: { titulo: '% Dto.', x: 374, w: 42, dcha: true },
+  final: { titulo: 'Precio final', x: 416, w: 79, dcha: true },
+};
 
 const cabeceraTabla = (doc, y) => {
-  doc.rect(MARGEN, y, ANCHO, 20).fill(AZUL);
+  doc.rect(MARGEN, y, ANCHO, 18).fill(AZUL);
   doc.fillColor('#ffffff').fontSize(8).font('Helvetica-Bold');
-  for (const c of COLS) {
-    doc.text(c.titulo, MARGEN + c.x + 3, y + 6,
-      { width: c.w - 6, align: c.dcha ? 'right' : 'left' });
+  for (const c of Object.values(COLS)) {
+    doc.text(c.titulo, MARGEN + c.x + 4, y + 5,
+      { width: c.w - 8, align: c.dcha ? 'right' : 'left', lineBreak: false });
   }
-  return y + 20;
+  return y + 18;
+};
+
+/** Escribe una celda de varias lineas. Cada linea: {texto, tam, color, fuente}. */
+const celda = (doc, col, y, lineas) => {
+  let dy = 5;
+  for (const l of lineas) {
+    if (!l) continue;
+    doc.fillColor(l.color || '#000000')
+      .fontSize(l.tam || 8.5)
+      .font(l.fuente || 'Helvetica')
+      .text(l.texto, MARGEN + col.x + 4, y + dy,
+        { width: col.w - 8, align: col.dcha ? 'right' : 'left', lineBreak: false });
+    dy += (l.tam || 8.5) + 2.2;
+  }
 };
 
 /**
- * @param {object} o  la oferta con sus lineas, tal y como la devuelve el
+ * @param {object} o  el listado con sus lineas, tal y como lo devuelve el
  *                    controlador: { id, created_at, cliente_*, vendedor_*,
  *                    planta_nombre, logo_path, lineas[], precios_de }
  */
 const generarPdfOferta = (o) => new Promise((resolve, reject) => {
-  const doc = new PDFDocument({ size: 'A4', margin: MARGEN });
+  const doc = new PDFDocument({ size: 'A4', margin: MARGEN, bufferPages: true });
   const trozos = [];
   doc.on('data', (t) => trozos.push(t));
   doc.on('end', () => resolve(Buffer.concat(trozos)));
@@ -90,15 +119,15 @@ const generarPdfOferta = (o) => new Promise((resolve, reject) => {
   // --- Cabecera: logotipo de la planta ---
   const logo = o.logo_path ? path.join(LOGOS, o.logo_path) : null;
   try {
-    // fitea dentro de una caja para que da igual la proporcion del logotipo:
-    // los cuatro tienen anchos distintos (de 528 a 899 px).
-    doc.image(fs.existsSync(logo) ? logo : LOGO_GENERICO, MARGEN, 40, { fit: [170, 42] });
+    // fit en una caja para que da igual la proporcion del logotipo: los cuatro
+    // tienen anchos distintos (de 528 a 899 px).
+    doc.image(logo && fs.existsSync(logo) ? logo : LOGO_GENERICO, MARGEN, 40, { fit: [170, 42] });
   } catch (_) {
     // Sin logotipo el documento sigue siendo valido; no se aborta por una imagen.
   }
 
   doc.fillColor(AZUL).fontSize(18).font('Helvetica-Bold')
-    .text('OFERTA DE PRECIOS', MARGEN, 44, { width: ANCHO, align: 'right' });
+    .text('LISTADO DE PRECIOS', MARGEN, 44, { width: ANCHO, align: 'right' });
   doc.fillColor(GRIS_TEXTO).fontSize(9).font('Helvetica')
     .text('Nº ' + o.id + '  ·  ' + fecha(o.created_at), MARGEN, 66,
       { width: ANCHO, align: 'right' });
@@ -128,9 +157,8 @@ const generarPdfOferta = (o) => new Promise((resolve, reject) => {
     y = doc.y;
   }
 
-  // Planta y vendedor, a la derecha del cliente.
-  // 155pt de ancho y se deja partir en dos lineas: "CLAUDIO BOGDAN IORGULESCU"
-  // mide 142,7pt, y hay nombres de vendedor mas largos que ese.
+  // Planta y vendedor, a la derecha del cliente. 155pt y con salto permitido:
+  // "CLAUDIO BOGDAN IORGULESCU" mide 142,7pt y hay nombres mas largos.
   const yDcha = 121;
   doc.fillColor(GRIS_TEXTO).fontSize(9).font('Helvetica')
     .text(o.planta_nombre || '', MARGEN + 340, yDcha, { width: 155, align: 'right' });
@@ -140,40 +168,56 @@ const generarPdfOferta = (o) => new Promise((resolve, reject) => {
 
   y = Math.max(y, yDcha + 30) + 16;
 
-  // --- Tabla de articulos ---
+  // --- Tabla ---
   y = cabeceraTabla(doc, y);
 
   let alterna = false;
   for (const l of o.lineas) {
-    // Un articulo de kilos necesita dos lineas: la descripcion y el aviso.
-    const avisoKilo = l.es_kilo
-      ? 'Se factura en kilos · cada unidad pesa ' +
-        String(Number(l.peso_neto)).replace('.', ',') + ' kg'
-      : null;
-    const alto = avisoKilo ? 30 : 18;
+    // Tres lineas de alto si se factura en kilos (hay fila de precio por kilo),
+    // dos si no.
+    const alto = l.es_kilo ? 35 : 25;
 
-    if (y + alto > PIE - 30) {
+    if (y + alto > PIE - 20) {
       doc.addPage();
       y = cabeceraTabla(doc, MARGEN);
       alterna = false;
     }
-
     if (alterna) doc.rect(MARGEN, y, ANCHO, alto).fill(GRIS_FILA);
     alterna = !alterna;
 
-    doc.fillColor('#000000').fontSize(8.5).font('Helvetica');
-    for (const c of COLS) {
-      let v = l[c.clave];
-      if (c.dinero) v = eur(v);
-      else if (c.porcentaje) v = pct(v);
-      else if (v === null || v === undefined) v = '';
-      doc.text(String(v), MARGEN + c.x + 3, y + 5,
-        { width: c.w - 6, align: c.dcha ? 'right' : 'left', lineBreak: false });
-    }
-    if (avisoKilo) {
-      doc.fillColor(AZUL).fontSize(7.5).font('Helvetica-Oblique')
-        .text(avisoKilo, MARGEN + COLS[1].x + 3, y + 17, { width: 280, lineBreak: false });
-    }
+    // Producto: descripcion y, debajo y mas pequeno, el codigo.
+    celda(doc, COLS.producto, y, [
+      { texto: l.descripcion, tam: 8.5 },
+      { texto: l.articulo_id, tam: 7, color: GRIS_SUAVE },
+    ]);
+
+    // Formato: unidades por caja y, si se factura en kilos, el peso por unidad.
+    celda(doc, COLS.formato, y, [
+      l.unidades_caja ? { texto: num(l.unidades_caja) + 'u/cj', tam: 8 } : null,
+      l.es_kilo && l.peso_neto
+        ? { texto: num(l.peso_neto) + ' kg/u', tam: 7.5, color: GRIS_TEXTO }
+        : null,
+    ]);
+
+    // Precio de tarifa: unidad, caja y, si aplica, kilo.
+    celda(doc, COLS.precio, y, [
+      { texto: eur(l.precio_unidad), tam: 8.5 },
+      l.precio_caja !== null ? { texto: eur(l.precio_caja) + '/cj', tam: 7.5, color: GRIS_TEXTO } : null,
+      l.es_kilo ? { texto: eur(l.precio_kilo) + '/kg', tam: 7.5, color: GRIS_TEXTO } : null,
+    ]);
+
+    doc.fillColor(Number(l.dto_pct) > 0 ? AZUL : GRIS_SUAVE)
+      .fontSize(9).font(Number(l.dto_pct) > 0 ? 'Helvetica-Bold' : 'Helvetica')
+      .text(pct(l.dto_pct), MARGEN + COLS.dto.x + 4, y + 6,
+        { width: COLS.dto.w - 8, align: 'right', lineBreak: false });
+
+    // Precio final: lo que importa, en negrita.
+    celda(doc, COLS.final, y, [
+      { texto: eur(l.precio_final_unidad), tam: 9, fuente: 'Helvetica-Bold' },
+      l.precio_final_caja !== null
+        ? { texto: eur(l.precio_final_caja) + '/cj', tam: 7.5, color: GRIS_TEXTO } : null,
+      l.es_kilo ? { texto: eur(l.precio_final_kilo) + '/kg', tam: 7.5, color: GRIS_TEXTO } : null,
+    ]);
 
     doc.moveTo(MARGEN, y + alto).lineTo(MARGEN + ANCHO, y + alto)
       .strokeColor(GRIS_BORDE).lineWidth(0.5).stroke();
@@ -182,27 +226,49 @@ const generarPdfOferta = (o) => new Promise((resolve, reject) => {
 
   doc.fillColor(GRIS_TEXTO).fontSize(8).font('Helvetica')
     .text(o.lineas.length + (o.lineas.length === 1 ? ' artículo' : ' artículos'),
-      MARGEN, y + 6, { width: ANCHO, align: 'right' });
+      MARGEN, y + 5, { width: ANCHO, align: 'right' });
+  y += 22;
+
+  // --- Texto legal ---
+  //
+  // Va al final del contenido y no en el pie de cada pagina: son cuatro
+  // parrafos y repetirlos en cada hoja se comeria la tabla.
+  if (y > PIE - 90) { doc.addPage(); y = MARGEN; }
+  doc.moveTo(MARGEN, y).lineTo(MARGEN + ANCHO, y)
+    .strokeColor(GRIS_BORDE).lineWidth(0.5).stroke();
+  y += 8;
+  doc.fillColor(GRIS_SUAVE).fontSize(6.5).font('Helvetica-Bold')
+    .text('CONDICIONES', MARGEN, y);
+  y += 10;
+  doc.fillColor(GRIS_TEXTO).fontSize(6.8).font('Helvetica');
+  for (const p of LEGAL) {
+    doc.text(p, MARGEN, y, { width: ANCHO, align: 'justify' });
+    y = doc.y + 2.5;
+  }
 
   // --- Pie: de cuando son los precios ---
   //
-  // La fecha de los precios va en el pie de la oferta, no la del ultimo sync de
+  // La fecha de los precios va en el pie del listado, no la del ultimo sync de
   // cualquier cosa: es la de erp.articulos_sec, que es de donde salen estos
   // importes (CONTRATO-SYNC.md, tabla de frescura).
   const rango = doc.bufferedPageRange();
   for (let i = 0; i < rango.count; i++) {
     doc.switchToPage(rango.start + i);
-    doc.moveTo(MARGEN, PIE).lineTo(MARGEN + ANCHO, PIE)
+    // El pie se dibuja POR DEBAJO del area de contenido (un A4 con margen 50
+    // acaba en y=792). Con el margen inferior intacto, pdfkit interpreta que no
+    // cabe y anade una pagina en blanco: de ahi que haya que anularlo antes.
+    doc.page.margins.bottom = 0;
+    doc.moveTo(MARGEN, 792).lineTo(MARGEN + ANCHO, 792)
       .strokeColor(GRIS_BORDE).lineWidth(0.5).stroke();
     doc.fillColor(GRIS_TEXTO).fontSize(7.5).font('Helvetica');
     if (o.precios_de) {
-      doc.text('Precios actualizados el ' + fecha(o.precios_de), MARGEN, PIE + 6, { width: 300 });
+      doc.text('Precios actualizados el ' + fecha(o.precios_de), MARGEN, 798, { width: 300 });
     }
-    doc.text('Página ' + (i + 1) + ' de ' + rango.count, MARGEN, PIE + 6,
+    doc.text('Página ' + (i + 1) + ' de ' + rango.count, MARGEN, 798,
       { width: ANCHO, align: 'right' });
   }
 
   doc.end();
 });
 
-module.exports = { generarPdfOferta, eur, pct };
+module.exports = { generarPdfOferta, eur, pct, num, COLS, LEGAL };
