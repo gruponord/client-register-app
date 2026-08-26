@@ -34,13 +34,14 @@ const LOGO_GENERICO = path.resolve(__dirname, '../../logo_GNP.jpg');
  * el ERP guarda `ibee_id` por articulo y las banderas `ibee` y `puntoverde` por
  * cliente, precisamente porque no van dentro del precio.
  *
- * Se enumeran por nombre en vez de dejarlo en un "impuestos aplicables"
- * generico: el cliente que recibe el listado y luego una factura mas alta tiene
- * derecho a saber de antemano por que conceptos.
+ * NO se enumeran por nombre. Este documento lo emiten las cuatro plantas y los
+ * impuestos que aplica cada una no son los mismos, asi que una lista concreta
+ * seria incorrecta en algunas y confundiria en el resto. El plural generico es
+ * cierto en las cuatro.
  */
 const LEGAL = [
-  'Precios en euros, impuestos no incluidos: al importe indicado se añadirán el IVA y, ' +
-  'cuando corresponda, el IBEE, el punto verde y cualquier otro impuesto o recargo aplicable.',
+  'Precios en euros, impuestos no incluidos. Al importe indicado se añadirán los impuestos ' +
+  'y recargos que resulten aplicables en cada caso.',
   'Este listado tiene carácter informativo y no constituye oferta contractual. Los precios y ' +
   'descuentos indicados pueden variar sin previo aviso y quedan sujetos a confirmación en el ' +
   'momento de formalizar el pedido.',
