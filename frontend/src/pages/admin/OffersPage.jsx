@@ -4,16 +4,13 @@ import api from '../../services/api';
 const eur = (n) => (n === null || n === undefined ? '—'
   : Number(n).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €');
 const num = (n) => String(Number(n)).replace('.', ',');
-// Mismas omisiones que el PDF: con 1 u/caja el precio de caja repite el de
-// unidad, y con 1 kg/u el de unidad repite el de kilo.
-const lineasPrecio = ({ l, unidad, caja, kilo }) => {
-  const out = [];
-  if (l.mostrar_unidad !== false) out.push({ v: unidad, suf: '', principal: true });
-  else if (l.es_kilo) out.push({ v: kilo, suf: '/kg', principal: true });
-  if (l.mostrar_caja !== false && caja !== null && caja !== undefined) out.push({ v: caja, suf: '/cj' });
-  if (l.es_kilo && l.mostrar_unidad !== false) out.push({ v: kilo, suf: '/kg' });
-  return out;
-};
+// El orden y las omisiones vienen en `presentacion`, igual que en el PDF.
+const importes = (linea, prefijo) =>
+  (linea.presentacion || []).map((x) => ({
+    v: linea[prefijo + x.campo],
+    suf: x.sufijo,
+    principal: x.principal,
+  }));
 
 const fecha = (d) => new Date(d).toLocaleString('es-ES',
   { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -202,21 +199,18 @@ const OffersPage = () => {
                         {l.es_kilo && <div className="text-xs text-indigo-600">{num(l.peso_neto)} kg/u</div>}
                       </td>
                       <td className="px-4 py-2 text-right whitespace-nowrap">
-                        {lineasPrecio({ l, unidad: l.precio_unidad, caja: l.precio_caja, kilo: l.precio_kilo })
-                          .map((x, i) => (
-                            <div key={i} className={x.principal ? '' : 'text-xs text-gray-500'}>{eur(x.v)}{x.suf}</div>
-                          ))}
+                        {importes(l, 'precio_').map((x, i) => (
+                          <div key={i} className={x.principal ? '' : 'text-xs text-gray-500'}>{eur(x.v)}{x.suf}</div>
+                        ))}
                       </td>
                       <td className="px-4 py-2 text-right whitespace-nowrap">
                         {l.dto_pct > 0 ? num(l.dto_pct) + ' %' : '—'}
                         {l.dto_editado && <div className="text-xs text-amber-600">a mano</div>}
                       </td>
                       <td className="px-4 py-2 text-right whitespace-nowrap">
-                        {lineasPrecio({ l, unidad: l.precio_final_unidad,
-                          caja: l.precio_final_caja, kilo: l.precio_final_kilo })
-                          .map((x, i) => (
-                            <div key={i} className={x.principal ? 'font-semibold' : 'text-xs text-gray-500'}>{eur(x.v)}{x.suf}</div>
-                          ))}
+                        {importes(l, 'precio_final_').map((x, i) => (
+                          <div key={i} className={x.principal ? 'font-semibold' : 'text-xs text-gray-500'}>{eur(x.v)}{x.suf}</div>
+                        ))}
                       </td>
                     </tr>
                   ))}

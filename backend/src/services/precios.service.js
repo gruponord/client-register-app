@@ -100,7 +100,25 @@ const calcularLinea = (l) => {
   const mostrarCaja = unidadesCaja > 1;
   const mostrarUnidad = !kilo || peso !== 1;
 
+  // El ORDEN en que se pintan los importes, y cual es el principal.
+  //
+  // Cuando el articulo se factura en kilos, el precio de referencia es el del
+  // kilo: es el que negocia el comercial y el que el cliente compara con otro
+  // proveedor. Va primero y en grande, y despues el de unidad y el de caja.
+  // Cuando se vende por unidades, el de unidad es el principal.
+  //
+  // Se devuelve como lista y no como banderas sueltas porque lo consumen tres
+  // sitios -- el PDF, la pantalla del comercial y el detalle de administracion --
+  // y el orden tiene que ser el mismo en los tres. Cada entrada dice de que
+  // campo sale el importe: precio_<campo> para la tarifa y
+  // precio_final_<campo> para el final.
+  const presentacion = [];
+  if (kilo) presentacion.push({ campo: 'kilo', sufijo: '/kg', principal: true });
+  if (mostrarUnidad) presentacion.push({ campo: 'unidad', sufijo: '/ud', principal: !kilo });
+  if (mostrarCaja) presentacion.push({ campo: 'caja', sufijo: '/cj', principal: false });
+
   return {
+    presentacion,
     es_kilo: kilo,
     peso_neto: kilo ? peso : null,
     unidades_caja: unidadesCaja || null,
