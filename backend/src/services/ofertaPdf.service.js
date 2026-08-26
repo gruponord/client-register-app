@@ -28,14 +28,19 @@ const LOGO_GENERICO = path.resolve(__dirname, '../../logo_GNP.jpg');
 /**
  * Texto legal del listado.
  *
- * ⚠️ La primera frase afirma que los precios NO llevan IVA. Es lo habitual en
- * una tarifa mayorista entre empresas, y es lo que hace el ERP al guardar el
- * `iva_id` como dato aparte del precio, pero conviene que lo confirme quien
- * corresponda antes de que salga a un cliente: decir "IVA no incluido" sobre
- * precios que ya lo llevasen seria un problema de verdad.
+ * Los precios de `articulos_sec` son la base imponible: no llevan NINGUN
+ * impuesto. Ademas del IVA hay otros que se anaden segun el articulo y el
+ * cliente, y de ahi que la frase hable de impuestos en plural y no solo del IVA:
+ * el ERP guarda `ibee_id` por articulo y las banderas `ibee` y `puntoverde` por
+ * cliente, precisamente porque no van dentro del precio.
+ *
+ * Se enumeran por nombre en vez de dejarlo en un "impuestos aplicables"
+ * generico: el cliente que recibe el listado y luego una factura mas alta tiene
+ * derecho a saber de antemano por que conceptos.
  */
 const LEGAL = [
-  'Precios en euros, IVA no incluido.',
+  'Precios en euros, impuestos no incluidos: al importe indicado se añadirán el IVA y, ' +
+  'cuando corresponda, el IBEE, el punto verde y cualquier otro impuesto o recargo aplicable.',
   'Este listado tiene carácter informativo y no constituye oferta contractual. Los precios y ' +
   'descuentos indicados pueden variar sin previo aviso y quedan sujetos a confirmación en el ' +
   'momento de formalizar el pedido.',
