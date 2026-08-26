@@ -434,7 +434,67 @@ const enviar = async (req, res) => {
   }
 };
 
+/**
+ * GET /api/offers  — listado para administracion.
+ *
+ * Solo admin. Un comercial no necesita un listado global: ve la que acaba de
+ * hacer y punto. Paginado con OFFSET, como el resto de la app.
+ */
+const listar = async (req, res) => {
+  try {
+    const { seccion, vendedor, cliente, desde, hasta, usuario } = req.query;
+    const porPagina = Math.min(Math.max(Number(req.query.por_pagina) || 25, 1), 100);
+    const pagina = Math.max(Number(req.query.pagina) || 1, 1);
+
+    const cond = ['true'];
+    const params = [];
+    const nuevo = (v) => { params.push(v); return '$' + params.length; };
+
+    if (seccion) cond.push('o.seccion_id = ' + nuevo(seccion));
+    if (vendedor) cond.push('o.vendedor_id = ' + nuevo(vendedor));
+    if (usuario) cond.push('o.user_id = ' + nuevo(Number(usuario)));
+    if (cliente) {
+      // Por nombre o por codigo con el mismo campo: el admin no tiene por que
+      // saber si lo que le han dado es un codigo o un nombre.
+      const p = nuevo('%' + cliente + '%');
+      cond.push('(o.cliente_nombre ILIKE ' + p + ' OR o.cliente_id ILIKE ' + p + ')');
+    }
+    if (desde) cond.push('o.created_at >= ' + nuevo(desde));
+    // Al filtro "hasta" se le suma un dia: quien escribe una fecha espera que
+    // ese dia entre, no que se corte a las 00:00.
+    if (hasta) cond.push("o.created_at < (" + nuevo(hasta) + ")::date + INTERVAL '1 day'");
+
+    const where = 'WHERE ' + cond.join(' AND ');
+
+    const total = await pool.query('SELECT count(*)::int AS n FROM offers o ' + where, params);
+    params.push(porPagina, (pagina - 1) * porPagina);
+
+    const { rows } = await pool.query(
+      `SELECT o.id, o.created_at, o.seccion_id, o.vendedor_nombre,
+              o.cliente_id, o.cliente_nombre, o.cliente_poblacion, o.es_nuevo,
+              p.name AS planta_nombre,
+              u.full_name AS usuario_nombre, u.username,
+              count(i.id)::int AS articulos,
+              count(*) FILTER (WHERE i.dto_editado)::int AS dtos_editados
+         FROM offers o
+         LEFT JOIN plants p ON p.code = o.seccion_id
+         LEFT JOIN users u ON u.id = o.user_id
+         LEFT JOIN offer_items i ON i.offer_id = o.id
+         ${where}
+        GROUP BY o.id, p.name, u.full_name, u.username
+        ORDER BY o.created_at DESC
+        LIMIT $${params.length - 1} OFFSET $${params.length}`,
+      params
+    );
+
+    res.json({ total: total.rows[0].n, pagina, por_pagina: porPagina, ofertas: rows });
+  } catch (err) {
+    console.error('Error al listar ofertas:', err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
 module.exports = {
   contexto, exigirPlanta, rutas, clientes, filtros, articulos,
-  crear, obtener, pdf, enviar,
+  crear, obtener, pdf, enviar, listar,
 };

@@ -20,6 +20,7 @@ import PlvArticlesPage from './pages/admin/PlvArticlesPage';
 import PlvSubmissionsPage from './pages/admin/PlvSubmissionsPage';
 import PlvFormPage from './pages/PlvFormPage';
 import PlvSuccessPage from './pages/PlvSuccessPage';
+import OffersPage from './pages/admin/OffersPage';
 
 function App() {
   return (
@@ -67,6 +68,7 @@ function App() {
             <Route path="plv/empresas" element={<PlvCompaniesPage />} />
             <Route path="plv/articulos" element={<PlvArticlesPage />} />
             <Route path="peticiones-plv" element={<PlvSubmissionsPage />} />
+            <Route path="listados-precios" element={<OffersPage />} />
             <Route path="auditoria" element={<AuditPage />} />
           </Route>
 

@@ -4,12 +4,21 @@ import { useAuth } from '../context/AuthContext';
 import FormPage from './FormPage';
 import ProspectingFormPage from './ProspectingFormPage';
 import PlvFormPage from './PlvFormPage';
+import OfertasFormPage from './OfertasFormPage';
+
+// Codigos que son PERMISOS dentro de una utilidad, no pantallas propias.
+// Reutilizan el mecanismo de utilidades para que el admin los asigne con el
+// mismo checkbox, pero no deben aparecer en el selector ni contar para decidir
+// si hay que ensenarlo: un usuario con 'ofertas' y 'ofertas_dto' tiene UNA
+// utilidad, y debe entrar directo en vez de ver un selector de un solo boton.
+const PERMISOS = ['ofertas_dto'];
 
 // El admin puede usar todas las utilidades aunque no las tenga marcadas.
 const utilidadesPermitidas = (usuario) => {
   if (!usuario) return [];
-  if (usuario.role === 'admin') return ['altas', 'prospecting', 'plv'];
-  return Array.isArray(usuario.utilities) ? usuario.utilities : [];
+  if (usuario.role === 'admin') return ['altas', 'prospecting', 'plv', 'ofertas'];
+  const propias = Array.isArray(usuario.utilities) ? usuario.utilities : [];
+  return propias.filter((c) => !PERMISOS.includes(c));
 };
 
 // Mapeo codigo utilidad -> id interno de formulario
@@ -17,6 +26,7 @@ const tipoDesdeCodigo = (codigo) => {
   if (codigo === 'altas') return 'altas';
   if (codigo === 'prospecting') return 'prospeccion';
   if (codigo === 'plv') return 'plv';
+  if (codigo === 'ofertas') return 'ofertas';
   return null;
 };
 
@@ -34,7 +44,8 @@ const FormSelectorPage = () => {
       if (permitidas.length > 1) setFormularioActivo(null);
       return;
     }
-    const codigo = tipo === 'altas' ? 'altas' : tipo === 'prospeccion' ? 'prospecting' : tipo === 'plv' ? 'plv' : null;
+    const codigo = tipo === 'altas' ? 'altas' : tipo === 'prospeccion' ? 'prospecting'
+      : tipo === 'plv' ? 'plv' : tipo === 'ofertas' ? 'ofertas' : null;
     if (!codigo || !permitidas.includes(codigo)) return;
     setFormularioActivo(tipo);
   };
@@ -68,6 +79,9 @@ const FormSelectorPage = () => {
   }
   if (formularioActivo === 'plv') {
     return <PlvFormPage onCambiarFormulario={cambiarFormulario} permitidas={permitidas} />;
+  }
+  if (formularioActivo === 'ofertas') {
+    return <OfertasFormPage onCambiarFormulario={cambiarFormulario} permitidas={permitidas} />;
   }
 
   return (
@@ -106,6 +120,21 @@ const FormSelectorPage = () => {
               <h2 className="text-lg font-bold text-gray-800 mb-2">Prospección de Cerveza</h2>
               <p className="text-sm text-gray-500">
                 Registrar información sobre un cliente potencial de cerveza: marcas, volumen, intereses.
+              </p>
+            </button>
+          )}
+
+          {permitidas.includes('ofertas') && (
+            <button onClick={() => setFormularioActivo('ofertas')}
+              className="bg-white rounded-xl shadow-lg border-2 border-transparent hover:border-indigo-500 p-6 text-left transition-all hover:shadow-xl group">
+              <div className="w-14 h-14 bg-indigo-100 rounded-xl flex items-center justify-center mb-4 group-hover:bg-indigo-200 transition-colors">
+                <svg className="w-7 h-7 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 14h6m-6-4h6m2 9H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              <h2 className="text-lg font-bold text-gray-800 mb-2">Listado de Precios</h2>
+              <p className="text-sm text-gray-500">
+                Montar un listado de precios personalizado para un cliente y compartirlo en PDF.
               </p>
             </button>
           )}

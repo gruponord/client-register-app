@@ -40,6 +40,7 @@ const menuItems = [
   },
   { path: '/admin/respuestas', label: 'Respuestas Altas' },
   { path: '/admin/prospecciones', label: 'Prospecciones' },
+  { path: '/admin/listados-precios', label: 'Listados de Precios' },
   { path: '/admin/peticiones-plv', label: 'Peticiones PLV' },
   { path: '/admin/auditoria', label: 'Auditoría' },
 ];
