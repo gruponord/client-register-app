@@ -86,6 +86,33 @@ const DATASETS = {
     ],
     frescuraHoras: 26,
   },
+  'erp.articulos': {
+    tabla: 'erp.articulos',
+    clave: ['empresa_id', 'articulo_id'],
+    columnas: [
+      'empresa_id', 'articulo_id', 'descripcion', 'familia_id', 'subfamilia_id',
+      'marca_id', 'artgen_id', 'tipoart_id', 'tiporepart_id', 'formato_id',
+      'proveedor_id', 'iva_id', 'unidad_prin_id', 'unidades_agrup', 'cajas_base',
+      'cajas_palet', 'codenvase_id', 'pv_id', 'peso_neto', 'peso_bruto', 'litros',
+      'web_fam_id', 'web_sfam_id', 'foto_url', 'envase', 'especial', 'quitar_catalogo',
+    ],
+    frescuraHoras: 26,
+  },
+  // Lleva datos personales de 35.268 clientes: nombre, NIF, domicilio y dos
+  // correos. Al consultarla, enumerar las columnas que la pantalla necesita y no
+  // usar SELECT * hacia una respuesta de API. Ver la cabecera de la migracion 012.
+  'erp.clientes': {
+    tabla: 'erp.clientes',
+    clave: ['empresa_id', 'cliente_id'],
+    columnas: [
+      'empresa_id', 'cliente_id', 'nombre', 'nif', 'per_fiscal', 'domicilio',
+      'cod_postal', 'poblacion', 'provincia_id', 'pais_id', 'email', 'email_factura',
+      'clase_id', 'grpclte_id', 'secpref_id', 'tarifa', 'logistraz', 'tipo_fact',
+      'coment_reparto', 'coment_vendedor', 'coment_barril',
+      'estado', 'fact_email', 'ibee', 'puntoverde',
+    ],
+    frescuraHoras: 26,
+  },
 };
 
 // Columnas que gestiona el receptor y que ninguna definicion debe declarar.
