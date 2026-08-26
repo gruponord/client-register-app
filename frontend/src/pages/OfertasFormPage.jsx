@@ -37,9 +37,10 @@ const OfertasFormPage = ({ onCambiarFormulario, permitidas = [] }) => {
 
   // --- Cliente ---
   const [modoCliente, setModoCliente] = useState('buscar');   // buscar | nuevo
-  const [criterio, setCriterio] = useState('ruta');           // ruta | poblacion | nombre | codigo
   const [rutas, setRutas] = useState([]);
-  const [busq, setBusq] = useState({ vendedor: '', dia: '', poblacion: '', nombre: '', codigo: '' });
+  // Un solo cuadro de texto para nombre, poblacion y codigo: el comercial no
+  // tiene por que decidir antes por que campo busca.
+  const [busq, setBusq] = useState({ vendedor: '', dia: '', texto: '' });
   const [resultados, setResultados] = useState(null);
   const [buscando, setBuscando] = useState(false);
   const [cliente, setCliente] = useState(null);
@@ -89,15 +90,12 @@ const OfertasFormPage = ({ onCambiarFormulario, permitidas = [] }) => {
   }, [planta]);
 
   // ---------------------------------------------------------------- clientes
-  const buscarClientes = async () => {
+  const buscarClientes = useCallback(async () => {
     if (!planta) return;
     const p = new URLSearchParams({ seccion: planta.seccion_id, por_pagina: '50' });
-    if (criterio === 'ruta') {
-      if (busq.vendedor) p.set('vendedor', busq.vendedor);
-      if (busq.dia) p.set('dia', busq.dia);
-    } else if (criterio === 'poblacion' && busq.poblacion) p.set('poblacion', busq.poblacion);
-    else if (criterio === 'nombre' && busq.nombre) p.set('nombre', busq.nombre);
-    else if (criterio === 'codigo' && busq.codigo) p.set('codigo', busq.codigo);
+    if (busq.vendedor) p.set('vendedor', busq.vendedor);
+    if (busq.dia) p.set('dia', busq.dia);
+    if (busq.texto.trim()) p.set('texto', busq.texto.trim());
 
     setBuscando(true); setError('');
     try {
@@ -109,7 +107,21 @@ const OfertasFormPage = ({ onCambiarFormulario, permitidas = [] }) => {
     } finally {
       setBuscando(false);
     }
-  };
+  }, [planta, busq]);
+
+  // Busca sola, sin boton: al entrar ya salen los clientes de la propia ruta, y
+  // al escribir se va filtrando. Los 300 ms de espera evitan una consulta por
+  // cada tecla, y las dos letras minimas evitan traer media cartera por una "a".
+  useEffect(() => {
+    if (!planta || modoCliente !== 'buscar') return undefined;
+    const texto = busq.texto.trim();
+    if (!busq.vendedor && !busq.dia && texto.length < 2) {
+      setResultados(null);
+      return undefined;
+    }
+    const t = setTimeout(buscarClientes, texto ? 300 : 0);
+    return () => clearTimeout(t);
+  }, [planta, modoCliente, busq, buscarClientes]);
 
   // ---------------------------------------------------------------- catalogo
   const cargarArticulos = useCallback(async (pag = 1) => {
@@ -348,58 +360,45 @@ const OfertasFormPage = ({ onCambiarFormulario, permitidas = [] }) => {
               </div>
             ) : (
               <div className="bg-white rounded-xl shadow p-4">
-                <div className="flex flex-wrap gap-1.5 mb-4">
-                  {[['ruta', 'Ruta y día'], ['poblacion', 'Población'], ['nombre', 'Nombre'], ['codigo', 'Código']].map(([k, t]) => (
-                    <button key={k} onClick={() => { setCriterio(k); setResultados(null); }}
-                      className={`px-3 py-1.5 rounded-full text-xs font-medium ${
-                        criterio === k ? 'bg-indigo-100 text-indigo-700 ring-1 ring-indigo-300' : 'bg-gray-100 text-gray-600'}`}>
-                      {t}
-                    </button>
-                  ))}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <select className={input} value={busq.vendedor}
+                    onChange={(e) => setBusq({ ...busq, vendedor: e.target.value })}>
+                    <option value="">Todas las rutas</option>
+                    {rutas.map((r) => (
+                      <option key={r.vendedor_id} value={r.vendedor_id}>
+                        {r.etiqueta} ({r.clientes})
+                      </option>
+                    ))}
+                  </select>
+                  <select className={input} value={busq.dia}
+                    onChange={(e) => setBusq({ ...busq, dia: e.target.value })}>
+                    <option value="">Cualquier día</option>
+                    {ctx.dias_visita.map((d) => (
+                      <option key={d.codigo} value={d.codigo}>{d.nombre}</option>
+                    ))}
+                  </select>
                 </div>
 
-                {criterio === 'ruta' && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <select className={input} value={busq.vendedor}
-                      onChange={(e) => setBusq({ ...busq, vendedor: e.target.value })}>
-                      <option value="">Todas las rutas</option>
-                      {rutas.map((r) => (
-                        <option key={r.vendedor_id} value={r.vendedor_id}>
-                          {r.etiqueta} ({r.clientes})
-                        </option>
-                      ))}
-                    </select>
-                    <select className={input} value={busq.dia}
-                      onChange={(e) => setBusq({ ...busq, dia: e.target.value })}>
-                      <option value="">Cualquier día</option>
-                      {ctx.dias_visita.map((d) => (
-                        <option key={d.codigo} value={d.codigo}>{d.nombre}</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-                {criterio === 'poblacion' && (
-                  <input className={input} placeholder="Ej. BILBAO" value={busq.poblacion}
-                    onChange={(e) => setBusq({ ...busq, poblacion: e.target.value })} />
-                )}
-                {criterio === 'nombre' && (
-                  <input className={input} placeholder="Parte del nombre del cliente" value={busq.nombre}
-                    onChange={(e) => setBusq({ ...busq, nombre: e.target.value })} />
-                )}
-                {criterio === 'codigo' && (
-                  <input className={input} placeholder="Primeros dígitos del código" value={busq.codigo}
-                    onChange={(e) => setBusq({ ...busq, codigo: e.target.value })} />
-                )}
-
-                <button onClick={buscarClientes} disabled={buscando} className={`${btnPri} w-full mt-3`}>
-                  {buscando ? 'Buscando…' : 'Buscar'}
-                </button>
+                <div className="relative mt-3">
+                  <input className={input} value={busq.texto} autoComplete="off"
+                    placeholder="Nombre, población o código"
+                    onChange={(e) => setBusq({ ...busq, texto: e.target.value })} />
+                  {busq.texto && (
+                    <button onClick={() => setBusq({ ...busq, texto: '' })}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 text-gray-400 hover:text-gray-600 text-lg leading-none"
+                      aria-label="Borrar búsqueda">×</button>
+                  )}
+                </div>
 
                 {resultados && (
                   <div className="mt-4">
                     <p className="text-xs text-gray-500 mb-2">
-                      {resultados.total} cliente{resultados.total === 1 ? '' : 's'}
-                      {resultados.total > resultados.clientes.length && ` · mostrando ${resultados.clientes.length}`}
+                      {buscando ? 'Buscando…' : (
+                        <>
+                          {resultados.total} cliente{resultados.total === 1 ? '' : 's'}
+                          {resultados.total > resultados.clientes.length && ` · mostrando ${resultados.clientes.length}`}
+                        </>
+                      )}
                     </p>
                     <div className="divide-y">
                       {resultados.clientes.map((c) => (
@@ -415,11 +414,17 @@ const OfertasFormPage = ({ onCambiarFormulario, permitidas = [] }) => {
                           </div>
                         </button>
                       ))}
-                      {!resultados.clientes.length && (
+                      {!resultados.clientes.length && !buscando && (
                         <p className="py-6 text-center text-sm text-gray-500">Ningún cliente con esos criterios.</p>
                       )}
                     </div>
                   </div>
+                )}
+
+                {!resultados && !buscando && (
+                  <p className="mt-4 py-6 text-center text-sm text-gray-500">
+                    Elige una ruta o escribe al menos dos letras.
+                  </p>
                 )}
               </div>
             )}

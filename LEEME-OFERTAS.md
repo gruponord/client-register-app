@@ -89,8 +89,9 @@ Y abrir **http://localhost:5173**. Ojo: Vite escucha en IPv6, así que
 
 ## 4. El flujo
 
-1. **Cliente** — cuatro búsquedas: ruta y día de visita, población, nombre y
-   código. Si el usuario es vendedor, su propia ruta viene preseleccionada. O
+1. **Cliente** — dos desplegables (ruta y día de visita) y un cuadro de texto
+   que busca a la vez en nombre, población y código. Busca sola mientras
+   escribes, sin botón: al entrar ya salen los clientes de tu propia ruta. O
    *Cliente nuevo*, que son dos campos de texto y no da de alta nada en el ERP.
 2. **Artículos** — filtro por familia, proveedor, descripción y código sobre el
    catálogo de la planta (entre 620 y 940 artículos según la planta). Botón `+`

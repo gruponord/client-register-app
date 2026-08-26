@@ -224,10 +224,31 @@ const buscarClientes = async (f) => {
     cond.push(`${nuevo(String(f.dia))} = ANY (string_to_array(replace(cr.period_semana, ' ', ''), ','))`);
   }
 
+  // Un solo cuadro de texto que busca a la vez en nombre, poblacion y codigo.
+  //
+  // Es lo que hace agil el buscador: el comercial no tiene que decidir antes
+  // por que campo busca. Escribe "BILBAO", "COLON" o "3048" y sale lo que haya.
+  // El codigo va por principio de cadena porque se teclean los primeros
+  // digitos; el nombre y la poblacion por fragmento, que es como se busca de
+  // memoria.
+  if (f.texto) {
+    const t = String(f.texto).trim();
+    if (t) {
+      const frag = nuevo('%' + t + '%');
+      const pre = nuevo(t + '%');
+      cond.push(
+        '(' + NOMBRE + ' ILIKE ' + frag +
+        ' OR ' + POBLACION + ' ILIKE ' + frag +
+        ' OR c.cliente_id ILIKE ' + pre + ')'
+      );
+    }
+  }
+
+  // Los filtros por campo concreto siguen disponibles para quien los necesite
+  // (un enlace directo, una pantalla de administracion), aunque la del
+  // comercial ya use solo el cuadro de texto.
   if (f.poblacion) cond.push(`${POBLACION} ILIKE ${nuevo('%' + f.poblacion + '%')}`);
   if (f.nombre) cond.push(`${NOMBRE} ILIKE ${nuevo('%' + f.nombre + '%')}`);
-  // El codigo se busca por principio de cadena: el comercial teclea los
-  // primeros digitos, no un fragmento del medio.
   if (f.codigo) cond.push(`c.cliente_id ILIKE ${nuevo(f.codigo + '%')}`);
 
   const where = 'WHERE ' + cond.join('\n        AND ');

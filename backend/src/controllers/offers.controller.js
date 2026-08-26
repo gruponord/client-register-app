@@ -109,23 +109,23 @@ const rutas = async (req, res) => {
  */
 const clientes = async (req, res) => {
   try {
-    const { vendedor, ruta, dia, poblacion, nombre, codigo, pagina, por_pagina } = req.query;
+    const { vendedor, ruta, dia, texto, poblacion, nombre, codigo, pagina, por_pagina } = req.query;
 
     if (dia && !servicio.DIAS_VISITA[dia]) {
       return res.status(400).json({ error: 'Día de visita no válido' });
     }
     // Sin ningun criterio serian 3.410 filas en Zubillaga: se pide al menos uno
     // para no traerse la cartera entera a un movil.
-    if (!vendedor && !ruta && !dia && !poblacion && !nombre && !codigo) {
+    if (!vendedor && !ruta && !dia && !texto && !poblacion && !nombre && !codigo) {
       return res.status(400).json({
-        error: 'Indica al menos un criterio: vendedor, ruta, día, población, nombre o código',
+        error: 'Indica al menos un criterio: ruta, día o texto de búsqueda',
         code: 'SIN_CRITERIO',
       });
     }
 
     res.json(await servicio.buscarClientes({
       seccion: req.planta.seccion_id,
-      vendedor, ruta, dia, poblacion, nombre, codigo,
+      vendedor, ruta, dia, texto, poblacion, nombre, codigo,
       pagina, porPagina: por_pagina,
     }));
   } catch (err) {
