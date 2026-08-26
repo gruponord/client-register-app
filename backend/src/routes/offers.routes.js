@@ -14,5 +14,7 @@ router.get('/contexto', entrar, ctrl.contexto);
 // comprueba que la planta pedida es una de las del usuario.
 router.get('/rutas', entrar, ctrl.exigirPlanta, ctrl.rutas);
 router.get('/clientes', entrar, ctrl.exigirPlanta, ctrl.clientes);
+router.get('/filtros', entrar, ctrl.exigirPlanta, ctrl.filtros);
+router.get('/articulos', entrar, ctrl.exigirPlanta, ctrl.articulos);
 
 module.exports = router;

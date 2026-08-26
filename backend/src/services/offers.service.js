@@ -12,6 +12,7 @@
 //   articulos_sec status = 0 AND vta_tpv = -1     ->  status = 0 AND vta_tpv = true
 //                                                    (status es entero: -1, 0, 3)
 const pool = require('../config/db');
+const { calcularLinea } = require('./precios.service');
 
 /**
  * Dias de visita de la ruta, en `cltes_rutas_vta.period_semana`.
@@ -269,6 +270,154 @@ const buscarClientes = async (f) => {
   };
 };
 
+// ---------------------------------------------------------------------------
+// Catalogo de articulos
+// ---------------------------------------------------------------------------
+
+/**
+ * Un articulo esta a la venta en una planta si su fila de articulos_sec pasa el
+ * filtro del ERP: `status = 0 AND vta_tpv = -1`, que aqui es `status = 0 AND
+ * vta_tpv = true` porque status es entero (-1, 0, 3) y vta_tpv booleano.
+ *
+ * Se exige ademas que tenga precio. De los 1.184 que pasan el filtro en
+ * Zubillaga, 208 tienen precio_vta a cero: son envases, palets, jaulas y vasos
+ * ("PALET LPR", "ENVASE PEPSI KAS TANQUETA"). Ofrecerlos pondria un 0,00 € en
+ * un documento que se entrega en mano, y eso es peor que no poder ofrecerlos.
+ * Quitar esta condicion es la unica linea que hay que tocar si se decide lo
+ * contrario.
+ */
+const ARTICULO_VENDIBLE = `
+  s.activo AND s.status = 0 AND s.vta_tpv = true
+  AND s.precio_vta IS NOT NULL AND s.precio_vta > 0
+`;
+
+const CATALOGO = `
+  FROM erp.articulos_sec s
+  JOIN erp.articulos a
+    ON a.empresa_id = s.empresa_id AND a.articulo_id = s.articulo_id AND a.activo
+  LEFT JOIN erp.familias f
+    ON f.empresa_id = a.empresa_id AND f.familia_id = a.familia_id AND f.activo
+  LEFT JOIN erp.proveedores pr
+    ON pr.empresa_id = a.empresa_id AND pr.proveedor_id = a.proveedor_id AND pr.activo
+`;
+
+/**
+ * Familias y proveedores del catalogo de una planta, para los desplegables.
+ *
+ * Los dos en la misma peticion a proposito: esto se abre en un movil y son dos
+ * viajes que no hacen falta. Solo salen los que tienen algun articulo vendible
+ * --en Zubillaga 35 familias y 100 proveedores-- porque una entrada que no
+ * filtra nada solo estorba.
+ */
+const filtrosDelCatalogo = async (seccionId) => {
+  const [familias, proveedores] = await Promise.all([
+    pool.query(
+      `SELECT a.familia_id AS id,
+              coalesce(nullif(trim(f.descripcion), ''), a.familia_id) AS nombre,
+              count(*)::int AS articulos
+         ${CATALOGO}
+        WHERE ${ARTICULO_VENDIBLE} AND s.seccion_id = $1 AND a.familia_id IS NOT NULL
+        GROUP BY 1, 2 ORDER BY 2`,
+      [seccionId]
+    ),
+    pool.query(
+      `SELECT a.proveedor_id AS id,
+              coalesce(nullif(trim(pr.xnombre), ''), a.proveedor_id) AS nombre,
+              count(*)::int AS articulos
+         ${CATALOGO}
+        WHERE ${ARTICULO_VENDIBLE} AND s.seccion_id = $1 AND a.proveedor_id IS NOT NULL
+        GROUP BY 1, 2 ORDER BY 2`,
+      [seccionId]
+    ),
+  ]);
+  return { familias: familias.rows, proveedores: proveedores.rows };
+};
+
+/**
+ * Busqueda de articulos del catalogo de una planta.
+ *
+ * Los cuatro filtros del enunciado --familia, codigo, descripcion y proveedor--
+ * se combinan. Aqui SI se permite buscar sin ningun criterio, al contrario que
+ * con los clientes: son unos 1.000 articulos por planta y el comercial espera
+ * poder hojear el catalogo entero como en una tienda, paginando.
+ *
+ * Cada fila viene con los precios ya calculados para el descuento por defecto
+ * del ERP. El frontend los recalcula al vuelo si el comercial cambia el
+ * descuento, con la misma formula de precios.service.js.
+ */
+const buscarArticulos = async (f) => {
+  const cond = [ARTICULO_VENDIBLE, 's.seccion_id = $1'];
+  const params = [f.seccion];
+  const nuevo = (valor) => { params.push(valor); return '$' + params.length; };
+
+  if (f.familia) cond.push(`a.familia_id = ${nuevo(f.familia)}`);
+  if (f.proveedor) cond.push(`a.proveedor_id = ${nuevo(f.proveedor)}`);
+  // El codigo por principio de cadena: el comercial teclea los primeros digitos.
+  if (f.codigo) cond.push(`a.articulo_id ILIKE ${nuevo(f.codigo + '%')}`);
+  // La descripcion por fragmento, que es como se busca en una tienda.
+  if (f.descripcion) cond.push(`a.descripcion ILIKE ${nuevo('%' + f.descripcion + '%')}`);
+
+  const where = 'WHERE ' + cond.join('\n        AND ');
+
+  const total = await pool.query(`SELECT count(*)::int AS n ${CATALOGO} ${where}`, params);
+
+  const porPagina = Math.min(Math.max(Number(f.porPagina) || 25, 1), 100);
+  const pagina = Math.max(Number(f.pagina) || 1, 1);
+  params.push(porPagina, (pagina - 1) * porPagina);
+
+  const { rows } = await pool.query(
+    `SELECT a.articulo_id,
+            a.descripcion,
+            a.unidad_prin_id                                        AS unidad,
+            a.peso_neto,
+            a.unidades_agrup                                        AS unidades_caja,
+            a.familia_id,
+            coalesce(nullif(trim(f.descripcion), ''), a.familia_id) AS familia,
+            a.proveedor_id,
+            coalesce(nullif(trim(pr.xnombre), ''), a.proveedor_id)  AS proveedor,
+            a.marca_id,
+            a.foto_url,
+            s.precio_vta,
+            coalesce(s.por_dto, 0)                                  AS por_dto,
+            s.bajopedido                                            AS bajo_pedido,
+            s.aliquidar                                             AS a_liquidar,
+            a.quitar_catalogo
+       ${CATALOGO}
+       ${where}
+      ORDER BY a.descripcion
+      LIMIT $${params.length - 1} OFFSET $${params.length}`,
+    params
+  );
+
+  return {
+    total: total.rows[0].n,
+    pagina,
+    por_pagina: porPagina,
+    articulos: rows.map((r) => ({
+      articulo_id: r.articulo_id,
+      descripcion: r.descripcion,
+      unidad: r.unidad,
+      unidades_caja: r.unidades_caja,
+      familia_id: r.familia_id,
+      familia: r.familia,
+      proveedor_id: r.proveedor_id,
+      proveedor: r.proveedor,
+      marca_id: r.marca_id,
+      foto_url: r.foto_url || null,
+      bajo_pedido: r.bajo_pedido === true,
+      a_liquidar: r.a_liquidar === true,
+      quitar_catalogo: r.quitar_catalogo === true,
+      ...calcularLinea({
+        unidad: r.unidad,
+        precio_vta: r.precio_vta,
+        peso_neto: r.peso_neto,
+        unidades_caja: r.unidades_caja,
+        dto_pct: r.por_dto,
+      }),
+    })),
+  };
+};
+
 module.exports = {
   DIAS_VISITA,
   etiquetasDias,
@@ -278,4 +427,6 @@ module.exports = {
   plantaPermitida,
   rutasDeLaPlanta,
   buscarClientes,
+  filtrosDelCatalogo,
+  buscarArticulos,
 };

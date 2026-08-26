@@ -131,4 +131,38 @@ const clientes = async (req, res) => {
   }
 };
 
-module.exports = { contexto, exigirPlanta, rutas, clientes };
+/**
+ * GET /api/offers/filtros?seccion=Z
+ * Familias y proveedores del catalogo, para los desplegables del buscador.
+ */
+const filtros = async (req, res) => {
+  try {
+    res.json(await servicio.filtrosDelCatalogo(req.planta.seccion_id));
+  } catch (err) {
+    console.error('Error al listar filtros del catálogo:', err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
+/**
+ * GET /api/offers/articulos?seccion=Z&familia=&proveedor=&codigo=&descripcion=
+ *
+ * El catalogo de la planta. A diferencia de los clientes, aqui SI se puede
+ * pedir sin ningun filtro: son unos 1.000 articulos y el comercial espera
+ * hojearlos como en una tienda.
+ */
+const articulos = async (req, res) => {
+  try {
+    const { familia, proveedor, codigo, descripcion, pagina, por_pagina } = req.query;
+    res.json(await servicio.buscarArticulos({
+      seccion: req.planta.seccion_id,
+      familia, proveedor, codigo, descripcion,
+      pagina, porPagina: por_pagina,
+    }));
+  } catch (err) {
+    console.error('Error al buscar artículos:', err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
+module.exports = { contexto, exigirPlanta, rutas, clientes, filtros, articulos };
