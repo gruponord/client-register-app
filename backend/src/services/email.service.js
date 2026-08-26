@@ -311,4 +311,43 @@ const enviarEmailPlv = async ({ submission, emailsEmpresa, emailUsuario }) => {
   }
 };
 
-module.exports = { enviarEmailSubmission, enviarEmailProspecting, enviarEmailPlv };
+/**
+ * Manda una oferta de precios al cliente, con el PDF adjunto.
+ *
+ * A diferencia de los otros correos de la app, este va DIRIGIDO AL CLIENTE y no
+ * a los buzones internos de la planta: el comercial escribe la direccion. Por
+ * eso el cuerpo es corto y sin tablas -- el detalle esta en el PDF -- y no se
+ * mete el logotipo por cid, que muchos clientes de correo bloquean y deja un
+ * hueco raro. El logotipo ya va dentro del documento.
+ */
+const enviarEmailOferta = async (destinatario, oferta, pdfBuffer) => {
+  const transporter = crearTransporter();
+  const nombre = oferta.cliente_nombre || 'cliente';
+  const firma = oferta.vendedor_nombre || oferta.usuario_nombre || '';
+
+  const html = `
+    <div style="font-family:Arial,sans-serif;max-width:600px;color:#333;line-height:1.6;">
+      <p>Hola,</p>
+      <p>Te adjuntamos la oferta de precios para <strong>${nombre}</strong>.</p>
+      <p>Si tienes cualquier duda, responde a este correo.</p>
+      <p style="margin-top:24px;">
+        Un saludo,<br/>
+        ${firma ? firma + '<br/>' : ''}
+        ${oferta.planta_nombre || 'Grupo Nord'}
+      </p>
+    </div>`;
+
+  await transporter.sendMail({
+    from: process.env.SMTP_FROM,
+    to: destinatario,
+    subject: 'Oferta de precios - ' + nombre,
+    html,
+    attachments: [{
+      filename: 'oferta-' + oferta.id + '.pdf',
+      content: pdfBuffer,
+      contentType: 'application/pdf',
+    }],
+  });
+};
+
+module.exports = { enviarEmailSubmission, enviarEmailProspecting, enviarEmailPlv, enviarEmailOferta };

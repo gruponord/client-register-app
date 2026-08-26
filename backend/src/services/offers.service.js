@@ -289,6 +289,7 @@ const buscarClientes = async (f) => {
 const ARTICULO_VENDIBLE = `
   s.activo AND s.status = 0 AND s.vta_tpv = true
   AND s.precio_vta IS NOT NULL AND s.precio_vta > 0
+  AND coalesce(a.quitar_catalogo, false) = false
 `;
 
 const CATALOGO = `
@@ -376,12 +377,10 @@ const buscarArticulos = async (f) => {
             a.proveedor_id,
             coalesce(nullif(trim(pr.xnombre), ''), a.proveedor_id)  AS proveedor,
             a.marca_id,
-            a.foto_url,
             s.precio_vta,
             coalesce(s.por_dto, 0)                                  AS por_dto,
             s.bajopedido                                            AS bajo_pedido,
-            s.aliquidar                                             AS a_liquidar,
-            a.quitar_catalogo
+            s.aliquidar                                             AS a_liquidar
        ${CATALOGO}
        ${where}
       ORDER BY a.descripcion
@@ -403,10 +402,11 @@ const buscarArticulos = async (f) => {
       proveedor_id: r.proveedor_id,
       proveedor: r.proveedor,
       marca_id: r.marca_id,
-      foto_url: r.foto_url || null,
+      // a.foto_url existe (812 de 1.184 articulos en Z lo traen) pero no se
+      // expone: el dato no esta bien informado todavia. Cuando lo este, es
+      // anadirlo aqui y al SELECT.
       bajo_pedido: r.bajo_pedido === true,
       a_liquidar: r.a_liquidar === true,
-      quitar_catalogo: r.quitar_catalogo === true,
       ...calcularLinea({
         unidad: r.unidad,
         precio_vta: r.precio_vta,
@@ -416,6 +416,64 @@ const buscarArticulos = async (f) => {
       }),
     })),
   };
+};
+
+
+/**
+ * Un cliente-local concreto de una planta.
+ *
+ * Se usa al guardar, y NO es un lujo: sin comprobarlo, una peticion manipulada
+ * podria colgar cualquier cliente_id a la oferta, incluido uno de otra
+ * delegacion. Pasa por la misma CADENA_CLIENTE que la busqueda, asi que si el
+ * cliente no es seleccionable (de baja, sin ruta, sin vendedor activo) tampoco
+ * se puede guardar una oferta contra el.
+ */
+const clienteConcreto = async (seccionId, clienteId, localId) => {
+  const { rows } = await pool.query(
+    `SELECT c.cliente_id,
+            e.local_id,
+            ${NOMBRE}    AS nombre,
+            ${POBLACION} AS poblacion,
+            v.vendedor_id,
+            v.nombre     AS vendedor_nombre
+       ${CADENA_CLIENTE}
+      WHERE ${SOLO_DE_ALTA} AND c.cliente_id = $2 AND e.local_id = $3
+      LIMIT 1`,
+    [seccionId, clienteId, localId]
+  );
+  return rows[0] || null;
+};
+
+/**
+ * Los articulos que se van a guardar, leidos del catalogo por su codigo.
+ *
+ * Se leen del ERP y no se aceptan del cliente: la peticion solo manda el codigo
+ * y el descuento. Si aceptasemos el precio, cualquiera podria guardar una oferta
+ * con el importe que quisiera.
+ */
+const articulosParaOferta = async (seccionId, ids) => {
+  const { rows } = await pool.query(
+    `SELECT a.articulo_id, a.descripcion, a.unidad_prin_id AS unidad,
+            a.peso_neto, a.unidades_agrup AS unidades_caja,
+            s.precio_vta, coalesce(s.por_dto, 0) AS por_dto
+       ${CATALOGO}
+      WHERE ${ARTICULO_VENDIBLE} AND s.seccion_id = $1 AND a.articulo_id = ANY($2)`,
+    [seccionId, ids]
+  );
+  return rows;
+};
+
+/**
+ * De cuando son los precios que se estan ofreciendo.
+ *
+ * Del dataset de articulos_sec en concreto, no del ultimo sync de cualquier
+ * cosa: en el pie de una oferta tiene que ir la fecha de LOS PRECIOS.
+ */
+const frescuraDePrecios = async () => {
+  const { rows } = await pool.query(
+    "SELECT ultima_ejecucion FROM erp.datasets WHERE dataset = 'erp.articulos_sec'"
+  );
+  return rows[0]?.ultima_ejecucion || null;
 };
 
 module.exports = {
@@ -429,4 +487,7 @@ module.exports = {
   buscarClientes,
   filtrosDelCatalogo,
   buscarArticulos,
+  clienteConcreto,
+  articulosParaOferta,
+  frescuraDePrecios,
 };

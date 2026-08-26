@@ -17,4 +17,11 @@ router.get('/clientes', entrar, ctrl.exigirPlanta, ctrl.clientes);
 router.get('/filtros', entrar, ctrl.exigirPlanta, ctrl.filtros);
 router.get('/articulos', entrar, ctrl.exigirPlanta, ctrl.articulos);
 
+// Guardar exige planta (va en el cuerpo); consultar y compartir no, porque la
+// oferta ya guardada lleva la suya.
+router.post('/', entrar, ctrl.exigirPlanta, ctrl.crear);
+router.get('/:id', entrar, ctrl.obtener);
+router.get('/:id/pdf', entrar, ctrl.pdf);
+router.post('/:id/enviar', entrar, ctrl.enviar);
+
 module.exports = router;
