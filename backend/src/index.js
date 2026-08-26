@@ -18,6 +18,7 @@ const plvCompaniesRoutes = require('./routes/plvCompanies.routes');
 const plvArticlesRoutes = require('./routes/plvArticles.routes');
 const plvRoutes = require('./routes/plv.routes');
 const syncRoutes = require('./routes/sync.routes');
+const offersRoutes = require('./routes/offers.routes');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -48,6 +49,11 @@ app.use(express.urlencoded({ extended: true }));
 // Servir ficheros subidos
 app.use('/uploads', express.static(path.resolve(uploadDir)));
 
+// Logotipos de las plantas, para la cabecera del PDF de las ofertas y para la
+// vista previa en el navegador. No son ficheros subidos por usuarios: viven en
+// el repositorio, asi que van en su propio directorio.
+app.use('/logos', express.static(path.join(__dirname, '..', 'logos')));
+
 // Rutas
 app.use('/api/auth', authRoutes);
 app.use('/api/users', usersRoutes);
@@ -60,6 +66,7 @@ app.use('/api/utilities', utilitiesRoutes);
 app.use('/api/plv-companies', plvCompaniesRoutes);
 app.use('/api/plv-articles', plvArticlesRoutes);
 app.use('/api/plv', plvRoutes);
+app.use('/api/offers', offersRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
