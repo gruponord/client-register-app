@@ -12,19 +12,23 @@ const servicio = require('../services/offers.service');
  * de los gestores y jefes de venta -- la interfaz pregunta con cual antes de
  * ensenar nada, porque el catalogo y la cartera de clientes son distintos en
  * cada una.
+ *
+ * Y si el usuario no tiene ficha de vendedor en el ERP, se le ofrecen las cuatro
+ * plantas para que elija: trabaja igual, y la oferta se guardara sin vendedor.
+ * `vinculado` dice cual de los dos casos es.
  */
 const contexto = async (req, res) => {
   try {
-    const plantas = await servicio.plantasDelUsuario(req.usuario.id);
+    const { vinculado, plantas } = await servicio.plantasDisponibles(req.usuario.id);
 
     if (!plantas.length) {
-      // No es un fallo del programa: es que el correo de este usuario no
-      // coincide con ningun vendedor de alta en el ERP. Lo arregla un admin
-      // cuadrando el correo, y el mensaje tiene que decirlo.
+      // Ni ficha de vendedor ni plantas: la app no tiene ninguna planta activa
+      // que exista tambien como seccion en la replica. Eso es configuracion, no
+      // un fallo del programa, y el mensaje tiene que decir donde mirar.
       return res.status(409).json({
-        error: 'Tu usuario no está vinculado a ningún vendedor activo del ERP. ' +
-               'Avisa a administración para que revise tu dirección de correo.',
-        code: 'SIN_VENDEDOR',
+        error: 'No hay ninguna planta configurada que exista en el ERP. ' +
+               'Avisa a administración.',
+        code: 'SIN_PLANTAS',
       });
     }
 
@@ -44,6 +48,9 @@ const contexto = async (req, res) => {
       })),
       // Con una sola planta la interfaz se salta el selector.
       requiere_seleccion: plantas.length > 1,
+      // false = no tiene ficha de vendedor y esta eligiendo entre todas las
+      // plantas. La oferta se guardara sin vendedor del ERP.
+      vinculado,
       puede_editar_dto: puedeEditarDto,
       dias_visita: Object.entries(servicio.DIAS_VISITA).map(([codigo, nombre]) => ({ codigo, nombre })),
     });

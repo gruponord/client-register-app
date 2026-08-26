@@ -122,9 +122,51 @@ const plantasDelUsuario = async (usuarioId) => {
   return rows;
 };
 
-/** Comprueba que la planta pedida es una de las del usuario. */
+/**
+ * Todas las plantas con las que se puede trabajar, para el usuario que no tiene
+ * ficha de vendedor en el ERP.
+ *
+ * Se cruzan las plantas de la app con las secciones que existen de verdad en la
+ * replica: una planta de la app sin seccion en el ERP daria un catalogo vacio y
+ * una cartera vacia, y es mejor no ofrecerla que ofrecer una via muerta. Hoy eso
+ * descarta las tres plantas de prueba (PL001, PL002, PL003).
+ */
+const plantasTodas = async () => {
+  const { rows } = await pool.query(
+    `SELECT s.seccion_id,
+            NULL::text AS vendedor_id,
+            NULL::text AS vendedor_nombre,
+            p.id       AS planta_id,
+            p.name     AS planta_nombre,
+            p.logo_path
+       FROM erp.secciones s
+       JOIN plants p ON p.code = s.seccion_id AND p.active
+      WHERE s.activo
+      ORDER BY p.name`
+  );
+  return rows;
+};
+
+/**
+ * Con que plantas puede trabajar este usuario.
+ *
+ * Lo normal es que tenga ficha de vendedor y se resuelva por correo. Si no la
+ * tiene -- un jefe, un administrativo, alguien recien dado de alta -- en vez de
+ * cerrarle la utilidad se le ofrecen las cuatro plantas y elige. Entonces
+ * trabaja igual, solo que la oferta se guarda sin vendedor del ERP.
+ *
+ * Es la UNICA fuente de la lista: la autorizacion de plantaPermitida sale de
+ * aqui tambien, para que nunca se ofrezca una planta que luego se rechace.
+ */
+const plantasDisponibles = async (usuarioId) => {
+  const propias = await plantasDelUsuario(usuarioId);
+  if (propias.length) return { vinculado: true, plantas: propias };
+  return { vinculado: false, plantas: await plantasTodas() };
+};
+
+/** Comprueba que la planta pedida es una de las que se le ofrecieron. */
 const plantaPermitida = async (usuarioId, seccionId) => {
-  const plantas = await plantasDelUsuario(usuarioId);
+  const { plantas } = await plantasDisponibles(usuarioId);
   return plantas.find((p) => p.seccion_id === seccionId) || null;
 };
 
@@ -231,6 +273,8 @@ module.exports = {
   DIAS_VISITA,
   etiquetasDias,
   plantasDelUsuario,
+  plantasTodas,
+  plantasDisponibles,
   plantaPermitida,
   rutasDeLaPlanta,
   buscarClientes,
