@@ -17,6 +17,25 @@
 // la API: esa corre en cluster con dos instancias y cada aviso saldria por
 // duplicado.
 //
+// DE QUE DEPENDE ESTO, Y ES LO IMPORTANTE
+// ---------------------------------------
+//
+// `erp.datasets.ultima_ejecucion` se escribe al recibir el ULTIMO lote de un
+// delta, este vacio o no (sync.controller.js). Por tanto significa "la ultima
+// vez que el agente nos hablo" y no "la ultima vez que algo cambio" -- que es
+// exactamente lo que hace falta para vigilar.
+//
+// Y eso vale PORQUE EL AGENTE MANDA LOS DELTAS VACIOS. Comprobado en produccion:
+// en la pasada del 26/08/2026 a las 13:xx, seis de los diez datasets llegaron con
+// `aplicadas: 0` y los seis refrescaron su fecha.
+//
+// Es una suposicion sobre el otro lado, no algo que garantice esta app. Si algun
+// dia el agente se ahorra la llamada cuando no tiene nada que enviar, esta
+// vigilancia empieza a dar la alarma sobre datasets perfectamente sanos: un
+// sistema de avisos que miente, que es peor que no tener ninguno. Si se cambia
+// esa parte del agente, aqui hay que dejar de mirar `ultima_ejecucion` y pasar a
+// registrar el contacto en una tabla propia.
+//
 // Uso:
 //   node src/jobs/vigilarSync.js            comprueba y avisa
 //   node src/jobs/vigilarSync.js --seco     comprueba y dice que haria, sin mandar
