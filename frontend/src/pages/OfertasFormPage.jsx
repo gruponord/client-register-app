@@ -48,7 +48,8 @@ const OfertasFormPage = ({ onCambiarFormulario, permitidas = [] }) => {
 
   // --- Articulos ---
   const [filtros, setFiltros] = useState({ familias: [], proveedores: [] });
-  const [fArt, setFArt] = useState({ familia: '', proveedor: '', descripcion: '', codigo: '' });
+  // Un solo cuadro de texto para codigo y descripcion, como en los clientes.
+  const [fArt, setFArt] = useState({ familia: '', proveedor: '', texto: '' });
   const [articulos, setArticulos] = useState([]);
   const [totalArt, setTotalArt] = useState(0);
   const [paginaArt, setPaginaArt] = useState(1);
@@ -141,7 +142,14 @@ const OfertasFormPage = ({ onCambiarFormulario, permitidas = [] }) => {
     }
   }, [planta, fArt]);
 
-  useEffect(() => { if (paso === 1) cargarArticulos(1); }, [paso, cargarArticulos]);
+  // Igual que con los clientes: sin boton. Al llegar al paso se carga el
+  // catalogo entero y al teclear se va filtrando. Aqui no hay minimo de letras
+  // porque hojear el catalogo completo es un caso valido.
+  useEffect(() => {
+    if (paso !== 1) return undefined;
+    const t = setTimeout(() => cargarArticulos(1), fArt.texto ? 300 : 0);
+    return () => clearTimeout(t);
+  }, [paso, cargarArticulos, fArt.texto]);
 
   const enCarrito = useMemo(
     () => new Set(carrito.map((l) => l.articulo.articulo_id)), [carrito]);
@@ -461,17 +469,23 @@ const OfertasFormPage = ({ onCambiarFormulario, permitidas = [] }) => {
                     <option key={p.id} value={p.id}>{p.nombre} ({p.articulos})</option>
                   ))}
                 </select>
-                <input className={input} placeholder="Descripción" value={fArt.descripcion}
-                  onChange={(e) => setFArt({ ...fArt, descripcion: e.target.value })} />
-                <input className={input} placeholder="Código" value={fArt.codigo}
-                  onChange={(e) => setFArt({ ...fArt, codigo: e.target.value })} />
               </div>
-              <button onClick={() => cargarArticulos(1)} className={`${btnPri} w-full mt-3`}>
-                {cargandoArt ? 'Buscando…' : 'Filtrar'}
-              </button>
+
+              <div className="relative mt-3">
+                <input className={input} value={fArt.texto} autoComplete="off"
+                  placeholder="Descripción o código"
+                  onChange={(e) => setFArt({ ...fArt, texto: e.target.value })} />
+                {fArt.texto && (
+                  <button onClick={() => setFArt({ ...fArt, texto: '' })}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 text-gray-400 hover:text-gray-600 text-lg leading-none"
+                    aria-label="Borrar búsqueda">×</button>
+                )}
+              </div>
             </div>
 
-            <p className="text-xs text-gray-500 mb-2">{totalArt} artículos</p>
+            <p className="text-xs text-gray-500 mb-2">
+              {cargandoArt ? 'Buscando…' : `${totalArt} artículo${totalArt === 1 ? '' : 's'}`}
+            </p>
             <div className="space-y-2">
               {articulos.map((a) => {
                 const dentro = enCarrito.has(a.articulo_id);

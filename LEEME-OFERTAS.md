@@ -93,9 +93,10 @@ Y abrir **http://localhost:5173**. Ojo: Vite escucha en IPv6, así que
    que busca a la vez en nombre, población y código. Busca sola mientras
    escribes, sin botón: al entrar ya salen los clientes de tu propia ruta. O
    *Cliente nuevo*, que son dos campos de texto y no da de alta nada en el ERP.
-2. **Artículos** — filtro por familia, proveedor, descripción y código sobre el
-   catálogo de la planta (entre 620 y 940 artículos según la planta). Botón `+`
-   para añadir, y una barra fija abajo con el recuento.
+2. **Artículos** — dos desplegables (familia y proveedor) y un cuadro de texto
+   que busca en descripción y código, igual que en los clientes y también sin
+   botón. El catálogo de la planta son entre 620 y 940 artículos y se puede
+   hojear entero. Botón `+` para añadir, y una barra fija abajo con el recuento.
 3. **Listado** — las líneas con formato, precio, descuento y precio final. El
    descuento es editable si se tiene el permiso.
 4. **Generar** — guarda y ofrece *Ver PDF*, *Compartir* y enviar por correo.

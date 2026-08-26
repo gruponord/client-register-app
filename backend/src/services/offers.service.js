@@ -374,9 +374,24 @@ const buscarArticulos = async (f) => {
 
   if (f.familia) cond.push(`a.familia_id = ${nuevo(f.familia)}`);
   if (f.proveedor) cond.push(`a.proveedor_id = ${nuevo(f.proveedor)}`);
-  // El codigo por principio de cadena: el comercial teclea los primeros digitos.
+
+  // Un solo cuadro de texto para descripcion y codigo, igual que en la
+  // busqueda de clientes. La descripcion por fragmento, que es como se busca
+  // en una tienda ("coca", "jamon"); el codigo por principio de cadena, porque
+  // se teclean los primeros digitos.
+  if (f.texto) {
+    const t = String(f.texto).trim();
+    if (t) {
+      const frag = nuevo('%' + t + '%');
+      const pre = nuevo(t + '%');
+      cond.push(
+        '(a.descripcion ILIKE ' + frag + ' OR a.articulo_id ILIKE ' + pre + ')'
+      );
+    }
+  }
+
+  // Los filtros por campo concreto siguen disponibles para quien los necesite.
   if (f.codigo) cond.push(`a.articulo_id ILIKE ${nuevo(f.codigo + '%')}`);
-  // La descripcion por fragmento, que es como se busca en una tienda.
   if (f.descripcion) cond.push(`a.descripcion ILIKE ${nuevo('%' + f.descripcion + '%')}`);
 
   const where = 'WHERE ' + cond.join('\n        AND ');

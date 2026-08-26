@@ -156,10 +156,10 @@ const filtros = async (req, res) => {
  */
 const articulos = async (req, res) => {
   try {
-    const { familia, proveedor, codigo, descripcion, pagina, por_pagina } = req.query;
+    const { familia, proveedor, texto, codigo, descripcion, pagina, por_pagina } = req.query;
     res.json(await servicio.buscarArticulos({
       seccion: req.planta.seccion_id,
-      familia, proveedor, codigo, descripcion,
+      familia, proveedor, texto, codigo, descripcion,
       pagina, porPagina: por_pagina,
     }));
   } catch (err) {
