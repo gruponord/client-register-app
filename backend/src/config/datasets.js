@@ -34,6 +34,58 @@ const DATASETS = {
     ],
     frescuraHoras: 26,
   },
+  'erp.familias': {
+    tabla: 'erp.familias',
+    clave: ['empresa_id', 'familia_id'],
+    columnas: ['empresa_id', 'familia_id', 'descripcion'],
+    frescuraHoras: 26,
+  },
+  'erp.proveedores': {
+    tabla: 'erp.proveedores',
+    clave: ['empresa_id', 'proveedor_id'],
+    columnas: ['empresa_id', 'proveedor_id', 'xnombre'],
+    frescuraHoras: 26,
+  },
+  // seccion_id esta en la clave porque el mismo ruta_ventas_id se reutiliza
+  // entre secciones: 171 valores distintos para 218 filas.
+  'erp.rutas_venta': {
+    tabla: 'erp.rutas_venta',
+    clave: ['empresa_id', 'seccion_id', 'ruta_ventas_id'],
+    columnas: ['empresa_id', 'seccion_id', 'ruta_ventas_id', 'descripcion', 'vendedor_id'],
+    frescuraHoras: 26,
+  },
+  'erp.articulos_sec': {
+    tabla: 'erp.articulos_sec',
+    clave: ['empresa_id', 'articulo_id', 'seccion_id'],
+    columnas: [
+      'empresa_id', 'articulo_id', 'seccion_id',
+      'precio_vta', 'precio_vta_b', 'por_dto', 'por_dto2', 'iva_id', 'ibee_id',
+      'cantapromo', 'cantbasepromo', 'stock_semaforo', 'status', 'alta_catalogo',
+      'vta_unid', 'vta_tpv', 'aliquidar', 'bajopedido',
+    ],
+    frescuraHoras: 26,
+  },
+  'erp.cli_env': {
+    tabla: 'erp.cli_env',
+    clave: ['empresa_id', 'cliente_id', 'local_id'],
+    columnas: [
+      'empresa_id', 'cliente_id', 'local_id', 'nombre', 'domicilio', 'cod_postal',
+      'poblacion', 'provincia_id', 'pais_id', 'telefono', 'email', 'zona_reparto_id',
+      'zona_venta_id', 'diareparto', 'diadescanso', 'reparto_pos',
+      'hora_ini1', 'hora_fin1', 'hora_ini2', 'hora_fin2', 'tiempo_servicio', 'req_visita',
+    ],
+    frescuraHoras: 26,
+  },
+  // origen_id esta en la clave porque sin el hay 37.337 filas para 36.289 claves.
+  'erp.cltes_rutas_vta': {
+    tabla: 'erp.cltes_rutas_vta',
+    clave: ['empresa_id', 'cliente_id', 'local_id', 'origen_id'],
+    columnas: [
+      'empresa_id', 'cliente_id', 'local_id', 'origen_id',
+      'ruta_venta_id', 'ruta_venta_pos', 'periodicidad', 'period_semana',
+    ],
+    frescuraHoras: 26,
+  },
 };
 
 // Columnas que gestiona el receptor y que ninguna definicion debe declarar.

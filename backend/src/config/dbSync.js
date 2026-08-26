@@ -8,6 +8,8 @@
 // Si SYNC_DATABASE_URL no esta puesta se reutiliza DATABASE_URL: el receptor
 // funciona igual y la separacion se puede activar despues sin tocar codigo
 // (ver src/db/permisos-sync.sql).
+require('./pgTypes');
+
 const { Pool } = require('pg');
 
 const separado = Boolean(process.env.SYNC_DATABASE_URL);

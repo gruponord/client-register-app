@@ -1,3 +1,7 @@
+// Registra los parsers de tipos antes de cualquier consulta. Es global al
+// modulo pg; el porque esta en pgTypes.js.
+require('./pgTypes');
+
 const { Pool } = require('pg');
 
 const pool = new Pool({
