@@ -26,32 +26,121 @@ const LOGOS = path.resolve(__dirname, '../../logos');
 const LOGO_GENERICO = path.resolve(__dirname, '../../logo_GNP.jpg');
 
 /**
- * Texto legal del listado.
+ * En que idioma se imprime cada planta.
  *
- * Los precios de `articulos_sec` son la base imponible: no llevan NINGUN
- * impuesto. Ademas del IVA hay otros que se anaden segun el articulo y el
- * cliente, y de ahi que la frase hable de impuestos en plural y no solo del IVA:
- * el ERP guarda `ibee_id` por articulo y las banderas `ibee` y `puntoverde` por
- * cliente, precisamente porque no van dentro del precio.
+ * MAP y Nordpirineus emiten en catalan; Casa Ayestaran y Zubillaga, en
+ * castellano, que es tambien el idioma por defecto de cualquier seccion que
+ * aparezca en el futuro.
  *
- * NO se enumeran por nombre. Este documento lo emiten las cuatro plantas y los
- * impuestos que aplica cada una no son los mismos, asi que una lista concreta
- * seria incorrecta en algunas y confundiria en el resto. El plural generico es
- * cierto en las cuatro.
+ * Va por SECCION y no por usuario ni por navegador: el idioma es el del
+ * documento que recibe el cliente, no una preferencia de quien lo escribe. Un
+ * jefe de ventas que trabaja hoy con MAP y manana con Zubillaga emite en catalan
+ * por la manana y en castellano por la tarde sin tocar nada.
  */
-const LEGAL = [
-  'Precios en euros, impuestos no incluidos. Al importe indicado se añadirán los impuestos ' +
-  'y recargos que resulten aplicables en cada caso.',
-  'Este listado tiene carácter informativo y no constituye oferta contractual. Los precios y ' +
-  'descuentos indicados pueden variar sin previo aviso y quedan sujetos a confirmación en el ' +
-  'momento de formalizar el pedido.',
-  'Los descuentos reflejados no son acumulables con otras promociones u ofertas vigentes, salvo ' +
-  'indicación expresa. Los portes, envases y depósitos retornables se facturan aparte según las ' +
-  'condiciones generales de venta.',
-  'Documento válido salvo error tipográfico u omisión.',
-];
+const IDIOMA_POR_SECCION = { M: 'ca', N: 'ca' };
 
-/** 1234.5 -> "1.234,50 €". Formato espanol, que es el del documento. */
+/**
+ * Etiquetas del impreso, en los dos idiomas.
+ *
+ * Aqui SOLO estan las etiquetas del formato. Lo que viene de la base de datos no
+ * se traduce ni se toca: el nombre del cliente, su poblacion y la descripcion de
+ * cada articulo salen del ERP y se imprimen tal cual. Traducir un dato al vuelo
+ * seria inventarselo, y ademas el listado dejaria de coincidir con el albaran y
+ * con la factura, que llevan la descripcion del ERP.
+ *
+ * Lo que si es igual en los dos idiomas queda fuera de esta tabla: el formato de
+ * los importes ("1.234,50 €") y el de las fechas (dd/mm/aaaa) coinciden en
+ * castellano y en catalan.
+ */
+const TEXTOS = {
+  es: {
+    locale: 'es-ES',
+    titulo: 'LISTADO DE PRECIOS',
+    numero: 'Nº ',
+    cliente: 'CLIENTE',
+    codigo: 'Código ',
+    clienteNuevo: 'Cliente nuevo, sin código en el sistema',
+    cols: {
+      producto: 'Producto',
+      formato: 'Formato',
+      precio: 'Precio',
+      dto: '% Dto.',
+      final: 'Precio final',
+    },
+    // Columna Formato: "24u/cj", "6 kg/u".
+    porCaja: 'u/cj',
+    porUnidad: ' kg/u',
+    // Sufijos de las columnas de importes, por el campo de `presentacion`.
+    sufijos: { kilo: '/kg', unidad: '/ud', caja: '/cj' },
+    recuento: (n) => n + (n === 1 ? ' artículo' : ' artículos'),
+    condiciones: 'CONDICIONES',
+    /**
+     * Los precios de `articulos_sec` son la base imponible: no llevan NINGUN
+     * impuesto. Ademas del IVA hay otros que se anaden segun el articulo y el
+     * cliente, y de ahi que la frase hable de impuestos en plural y no solo del
+     * IVA: el ERP guarda `ibee_id` por articulo y las banderas `ibee` y
+     * `puntoverde` por cliente, precisamente porque no van dentro del precio.
+     *
+     * NO se enumeran por nombre. Este documento lo emiten las cuatro plantas y
+     * los impuestos que aplica cada una no son los mismos, asi que una lista
+     * concreta seria incorrecta en algunas y confundiria en el resto. El plural
+     * generico es cierto en las cuatro.
+     */
+    legal: [
+      'Precios en euros, impuestos no incluidos. Al importe indicado se añadirán los impuestos ' +
+      'y recargos que resulten aplicables en cada caso.',
+      'Este listado tiene carácter informativo y no constituye oferta contractual. Los precios y ' +
+      'descuentos indicados pueden variar sin previo aviso y quedan sujetos a confirmación en el ' +
+      'momento de formalizar el pedido.',
+      'Los descuentos reflejados no son acumulables con otras promociones u ofertas vigentes, salvo ' +
+      'indicación expresa. Los portes, envases y depósitos retornables se facturan aparte según las ' +
+      'condiciones generales de venta.',
+      'Documento válido salvo error tipográfico u omisión.',
+    ],
+    preciosDe: 'Precios actualizados el ',
+    pagina: (i, n) => 'Página ' + i + ' de ' + n,
+  },
+
+  ca: {
+    locale: 'ca-ES',
+    titulo: 'LLISTAT DE PREUS',
+    numero: 'Núm. ',
+    cliente: 'CLIENT',
+    codigo: 'Codi ',
+    clienteNuevo: 'Client nou, sense codi al sistema',
+    cols: {
+      producto: 'Producte',
+      formato: 'Format',
+      precio: 'Preu',
+      dto: '% Dte.',
+      final: 'Preu final',
+    },
+    // "cx" de caixa y "ut" de unitat, para que las tres abreviaturas de las
+    // columnas de importes ("/kg", "/ut", "/cx") sigan alineando igual.
+    porCaja: 'u/cx',
+    porUnidad: ' kg/u',
+    sufijos: { kilo: '/kg', unidad: '/ut', caja: '/cx' },
+    recuento: (n) => n + (n === 1 ? ' article' : ' articles'),
+    condiciones: 'CONDICIONS',
+    legal: [
+      'Preus en euros, impostos no inclosos. A l\'import indicat s\'hi afegiran els impostos ' +
+      'i recàrrecs que resultin aplicables en cada cas.',
+      'Aquest llistat té caràcter informatiu i no constitueix oferta contractual. Els preus i ' +
+      'descomptes indicats poden variar sense avís previ i queden subjectes a confirmació en el ' +
+      'moment de formalitzar la comanda.',
+      'Els descomptes reflectits no són acumulables amb altres promocions o ofertes vigents, tret ' +
+      'd\'indicació expressa. Els ports, envasos i dipòsits retornables es facturen a part segons ' +
+      'les condicions generals de venda.',
+      'Document vàlid excepte error tipogràfic o omissió.',
+    ],
+    preciosDe: 'Preus actualitzats el ',
+    pagina: (i, n) => 'Pàgina ' + i + ' de ' + n,
+  },
+};
+
+const textosDe = (seccion) => TEXTOS[IDIOMA_POR_SECCION[seccion]] || TEXTOS.es;
+
+/** 1234.5 -> "1.234,50 €". Mismo formato en castellano y en catalan. */
 const eur = (n) => {
   if (n === null || n === undefined) return '—';
   const s = Number(n).toFixed(2).split('.');
@@ -64,7 +153,7 @@ const pct = (n) => (Number(n) > 0 ? String(Number(n)).replace('.', ',') + ' %' :
 /** 3.2 -> "3,2" */
 const num = (n) => String(Number(n)).replace('.', ',');
 
-const fecha = (d) => new Date(d).toLocaleDateString('es-ES',
+const fecha = (d, locale) => new Date(d).toLocaleDateString(locale || 'es-ES',
   { day: '2-digit', month: '2-digit', year: 'numeric' });
 
 /**
@@ -75,22 +164,26 @@ const fecha = (d) => new Date(d).toLocaleDateString('es-ES',
  * 211pt a 8,5pt) y sobre el peor caso de cada columna de importes. El texto va
  * con lineBreak:false, asi que lo que no cabe se corta en silencio, y por eso
  * cada columna se dimensiona por el maximo entre su titulo y su peor valor.
+ *
+ * Los anchos son los mismos en los dos idiomas: las etiquetas catalanas son mas
+ * cortas que las castellanas y los sufijos miden practicamente igual, asi que el
+ * peor caso sigue siendo el del castellano.
  */
 const COLS = {
-  producto: { titulo: 'Producto', x: 0, w: 240 },
+  producto: { x: 0, w: 240 },
   // 68 y no 62: "99999,9999 kg/u" mide 55,9pt, y Producto tiene holgura de
   // sobra (la descripcion mas larga del catalogo son 211pt).
-  formato: { titulo: 'Formato', x: 240, w: 68 },
-  precio: { titulo: 'Precio', x: 308, w: 66, dcha: true },
-  dto: { titulo: '% Dto.', x: 374, w: 42, dcha: true },
-  final: { titulo: 'Precio final', x: 416, w: 79, dcha: true },
+  formato: { x: 240, w: 68 },
+  precio: { x: 308, w: 66, dcha: true },
+  dto: { x: 374, w: 42, dcha: true },
+  final: { x: 416, w: 79, dcha: true },
 };
 
-const cabeceraTabla = (doc, y) => {
+const cabeceraTabla = (doc, y, t) => {
   doc.rect(MARGEN, y, ANCHO, 18).fill(AZUL);
   doc.fillColor('#ffffff').fontSize(8).font('Helvetica-Bold');
-  for (const c of Object.values(COLS)) {
-    doc.text(c.titulo, MARGEN + c.x + 4, y + 5,
+  for (const [clave, c] of Object.entries(COLS)) {
+    doc.text(t.cols[clave], MARGEN + c.x + 4, y + 5,
       { width: c.w - 8, align: c.dcha ? 'right' : 'left', lineBreak: false });
   }
   return y + 18;
@@ -112,13 +205,17 @@ const celda = (doc, col, y, lineas) => {
 
 /**
  * @param {object} o  el listado con sus lineas, tal y como lo devuelve el
- *                    controlador: { id, created_at, cliente_*, vendedor_*,
- *                    planta_nombre, logo_path, lineas[], precios_de }
+ *                    controlador: { id, created_at, seccion_id, cliente_*,
+ *                    vendedor_nombre, emisor_email, logo_path, lineas[],
+ *                    precios_de }
  */
 const generarPdfOferta = (o) => new Promise((resolve, reject) => {
+  // El idioma sale de la seccion que emite, no de quien pulsa el boton.
+  const t = textosDe(o.seccion_id);
+
   const doc = new PDFDocument({ size: 'A4', margin: MARGEN, bufferPages: true });
   const trozos = [];
-  doc.on('data', (t) => trozos.push(t));
+  doc.on('data', (x) => trozos.push(x));
   doc.on('end', () => resolve(Buffer.concat(trozos)));
   doc.on('error', reject);
 
@@ -133,16 +230,16 @@ const generarPdfOferta = (o) => new Promise((resolve, reject) => {
   }
 
   doc.fillColor(AZUL).fontSize(18).font('Helvetica-Bold')
-    .text('LISTADO DE PRECIOS', MARGEN, 44, { width: ANCHO, align: 'right' });
+    .text(t.titulo, MARGEN, 44, { width: ANCHO, align: 'right' });
   doc.fillColor(GRIS_TEXTO).fontSize(9).font('Helvetica')
-    .text('Nº ' + o.id + '  ·  ' + fecha(o.created_at), MARGEN, 66,
+    .text(t.numero + o.id + '  ·  ' + fecha(o.created_at, t.locale), MARGEN, 66,
       { width: ANCHO, align: 'right' });
 
   doc.moveTo(MARGEN, 92).lineTo(MARGEN + ANCHO, 92).strokeColor(AZUL).lineWidth(2).stroke();
 
   // --- Cliente ---
   let y = 108;
-  doc.fillColor(GRIS_TEXTO).fontSize(8).font('Helvetica-Bold').text('CLIENTE', MARGEN, y);
+  doc.fillColor(GRIS_TEXTO).fontSize(8).font('Helvetica-Bold').text(t.cliente, MARGEN, y);
   y += 13;
   doc.fillColor('#000000').fontSize(13).font('Helvetica-Bold')
     .text(o.cliente_nombre, MARGEN, y, { width: 330 });
@@ -150,7 +247,7 @@ const generarPdfOferta = (o) => new Promise((resolve, reject) => {
 
   const detalle = [];
   // El codigo solo si lo hay: un cliente nuevo todavia no tiene.
-  if (o.cliente_id) detalle.push('Código ' + o.cliente_id);
+  if (o.cliente_id) detalle.push(t.codigo + o.cliente_id);
   if (o.cliente_poblacion) detalle.push(o.cliente_poblacion);
   if (detalle.length) {
     doc.fillColor('#333333').fontSize(10).font('Helvetica')
@@ -159,7 +256,7 @@ const generarPdfOferta = (o) => new Promise((resolve, reject) => {
   }
   if (o.es_nuevo) {
     doc.fillColor(GRIS_TEXTO).fontSize(8).font('Helvetica-Oblique')
-      .text('Cliente nuevo, sin código en el sistema', MARGEN, y + 2);
+      .text(t.clienteNuevo, MARGEN, y + 2);
     y = doc.y;
   }
 
@@ -172,6 +269,8 @@ const generarPdfOferta = (o) => new Promise((resolve, reject) => {
   // El nombre sale SOLO si quien emite tiene ficha de vendedor en el ERP. Un
   // usuario sin ficha -- un jefe, un administrativo -- deja solo el correo: poner
   // ahi el nombre de la cuenta de la aplicacion no le dice nada al cliente.
+  //
+  // Ni el nombre ni el correo se traducen: son datos, no etiquetas.
   //
   // 155pt de ancho y con salto permitido, porque "CLAUDIO BOGDAN IORGULESCU"
   // mide 142,7pt y hay nombres mas largos.
@@ -194,7 +293,7 @@ const generarPdfOferta = (o) => new Promise((resolve, reject) => {
   y = Math.max(y, yDcha + 30) + 16;
 
   // --- Tabla ---
-  y = cabeceraTabla(doc, y);
+  y = cabeceraTabla(doc, y, t);
 
   let alterna = false;
   for (const l of o.lineas) {
@@ -206,13 +305,14 @@ const generarPdfOferta = (o) => new Promise((resolve, reject) => {
 
     if (y + alto > PIE - 20) {
       doc.addPage();
-      y = cabeceraTabla(doc, MARGEN);
+      y = cabeceraTabla(doc, MARGEN, t);
       alterna = false;
     }
     if (alterna) doc.rect(MARGEN, y, ANCHO, alto).fill(GRIS_FILA);
     alterna = !alterna;
 
-    // Producto: descripcion y, debajo y mas pequeno, el codigo.
+    // Producto: descripcion y, debajo y mas pequeno, el codigo. Los dos vienen
+    // del ERP y van tal cual en los dos idiomas.
     celda(doc, COLS.producto, y, [
       { texto: l.descripcion, tam: 8.5 },
       { texto: l.articulo_id, tam: 7, color: GRIS_SUAVE },
@@ -220,19 +320,23 @@ const generarPdfOferta = (o) => new Promise((resolve, reject) => {
 
     // Formato: unidades por caja y, si se factura en kilos, el peso por unidad.
     celda(doc, COLS.formato, y, [
-      l.unidades_caja ? { texto: num(l.unidades_caja) + 'u/cj', tam: 8 } : null,
+      l.unidades_caja ? { texto: num(l.unidades_caja) + t.porCaja, tam: 8 } : null,
       l.es_kilo && l.peso_neto
-        ? { texto: num(l.peso_neto) + ' kg/u', tam: 7.5, color: GRIS_TEXTO }
+        ? { texto: num(l.peso_neto) + t.porUnidad, tam: 7.5, color: GRIS_TEXTO }
         : null,
     ]);
 
     // Precio de tarifa. El orden y las omisiones vienen dados en
     // `presentacion`: con kilos manda el €/kg, y no se repite un importe que
     // seria el mismo (1 u/caja, 1 kg/u).
+    //
+    // El sufijo se saca del idioma por el campo, y no del `sufijo` que trae
+    // `presentacion`: ese es el que ve el comercial en pantalla, que va siempre
+    // en castellano porque la aplicacion es interna.
     const destacado = { tam: 8.5 };
     const secundario = { tam: 7.5, color: GRIS_TEXTO };
     celda(doc, COLS.precio, y, pres.map((x) => ({
-      texto: eur(l['precio_' + x.campo]) + x.sufijo,
+      texto: eur(l['precio_' + x.campo]) + t.sufijos[x.campo],
       ...(x.principal ? destacado : secundario),
     })));
 
@@ -244,7 +348,7 @@ const generarPdfOferta = (o) => new Promise((resolve, reject) => {
     // Precio final: mismo orden, y el principal en negrita.
     const fuerte = { tam: 9, fuente: 'Helvetica-Bold' };
     celda(doc, COLS.final, y, pres.map((x) => ({
-      texto: eur(l['precio_final_' + x.campo]) + x.sufijo,
+      texto: eur(l['precio_final_' + x.campo]) + t.sufijos[x.campo],
       ...(x.principal ? fuerte : secundario),
     })));
 
@@ -254,8 +358,7 @@ const generarPdfOferta = (o) => new Promise((resolve, reject) => {
   }
 
   doc.fillColor(GRIS_TEXTO).fontSize(8).font('Helvetica')
-    .text(o.lineas.length + (o.lineas.length === 1 ? ' artículo' : ' artículos'),
-      MARGEN, y + 5, { width: ANCHO, align: 'right' });
+    .text(t.recuento(o.lineas.length), MARGEN, y + 5, { width: ANCHO, align: 'right' });
   y += 22;
 
   // --- Texto legal ---
@@ -267,10 +370,10 @@ const generarPdfOferta = (o) => new Promise((resolve, reject) => {
     .strokeColor(GRIS_BORDE).lineWidth(0.5).stroke();
   y += 8;
   doc.fillColor(GRIS_SUAVE).fontSize(6.5).font('Helvetica-Bold')
-    .text('CONDICIONES', MARGEN, y);
+    .text(t.condiciones, MARGEN, y);
   y += 10;
   doc.fillColor(GRIS_TEXTO).fontSize(6.8).font('Helvetica');
-  for (const p of LEGAL) {
+  for (const p of t.legal) {
     doc.text(p, MARGEN, y, { width: ANCHO, align: 'justify' });
     y = doc.y + 2.5;
   }
@@ -291,13 +394,15 @@ const generarPdfOferta = (o) => new Promise((resolve, reject) => {
       .strokeColor(GRIS_BORDE).lineWidth(0.5).stroke();
     doc.fillColor(GRIS_TEXTO).fontSize(7.5).font('Helvetica');
     if (o.precios_de) {
-      doc.text('Precios actualizados el ' + fecha(o.precios_de), MARGEN, 798, { width: 300 });
+      doc.text(t.preciosDe + fecha(o.precios_de, t.locale), MARGEN, 798, { width: 300 });
     }
-    doc.text('Página ' + (i + 1) + ' de ' + rango.count, MARGEN, 798,
-      { width: ANCHO, align: 'right' });
+    doc.text(t.pagina(i + 1, rango.count), MARGEN, 798, { width: ANCHO, align: 'right' });
   }
 
   doc.end();
 });
 
-module.exports = { generarPdfOferta, eur, pct, num, COLS, LEGAL };
+module.exports = {
+  generarPdfOferta, eur, pct, num, fecha,
+  COLS, TEXTOS, IDIOMA_POR_SECCION, textosDe,
+};

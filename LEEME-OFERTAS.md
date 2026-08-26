@@ -105,6 +105,25 @@ Y abrir **http://localhost:5173**. Ojo: Vite escucha en IPv6, así que
 menú nativo y adjunta el PDF de verdad (WhatsApp incluido). En un escritorio no
 existe esa API y entonces abre el PDF para guardarlo.
 
+### El idioma del impreso
+
+El PDF sale **en catalán en MAP y en Nordpirineus** y en castellano en el resto,
+según `IDIOMA_POR_SECCION` en `ofertaPdf.service.js`. Va por la sección que
+emite y no por el usuario ni por el navegador: el idioma es el del documento que
+recibe el cliente. Una sección que no esté en esa tabla sale en castellano.
+
+Solo se traducen las **etiquetas**. Lo que viene del ERP —el nombre del cliente,
+su población, la descripción de cada artículo, el nombre y el correo de quien
+emite— se imprime tal cual: traducirlo al vuelo sería inventárselo, y además el
+listado dejaría de coincidir con el albarán y con la factura.
+
+La aplicación en sí sigue en castellano en las cuatro plantas: es interna. De ahí
+que el `sufijo` que devuelve `precios.service.js` (`/ud`, `/cj`) sea el de
+pantalla, y que el PDF se saque el suyo del idioma a partir del campo.
+
+El correo con el que se manda el PDF **sigue en castellano** en las cuatro
+plantas; solo está traducido el documento adjunto.
+
 ## 5. Desde admin
 
 `/admin/listados-precios` lista lo generado, con filtro por planta, cliente y
