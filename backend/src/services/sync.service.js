@@ -3,7 +3,7 @@
 // Contrato: "Sincronizador GNP/CONTRATO-SYNC.md". Aqui no hay nada especifico
 // de un dataset concreto: lo especifico esta en config/datasets.js.
 const crypto = require('crypto');
-const { COLUMNAS_CONTROL } = require('../config/datasets');
+const { COLUMNAS_CONTROL, DATASETS } = require('../config/datasets');
 
 // ---------------------------------------------------------------------------
 // Checksum (contrato §4)
@@ -249,9 +249,62 @@ const purgarRecibidos = async (cliente) => {
   );
 };
 
+// ---------------------------------------------------------------------------
+// Frescura de la replica (contrato §9 y §16)
+// ---------------------------------------------------------------------------
+
+/**
+ * Estado de frescura de TODOS los datasets del registro.
+ *
+ * Se recorre `DATASETS` y no `erp.datasets`, y esa es la parte que importa: un
+ * dataset declarado que no tiene fila en `erp.datasets` es uno del que no ha
+ * llegado nunca nada, que es la senal mas grave de todas. Recorriendo la tabla
+ * no aparecerian: no hay fila que mirar.
+ *
+ * Vive aqui y no en el controlador porque lo usan dos sitios -- la pantalla de
+ * administracion y el aviso por correo -- y "viejo" tiene que significar lo
+ * mismo en los dos. Con dos copias, un dia la pantalla dice que todo va bien
+ * mientras el correo avisa de lo contrario.
+ *
+ * No consulta NADA del agente, a proposito. Si preguntase a su API y no
+ * respondiese, no habria forma de distinguir un agente caido de un problema de
+ * red. El dato viejo en la propia base es senal suficiente: algo pasa, y para
+ * avisar da igual el que.
+ *
+ * @param {object} pool  pool de la app (el de lectura; `erp.datasets` se lee)
+ */
+const estadoDatasets = async (pool) => {
+  const { rows } = await pool.query(
+    'SELECT dataset, ultima_ejecucion, filas, checksum, modo FROM erp.datasets'
+  );
+  const porDataset = new Map(rows.map((f) => [f.dataset, f]));
+  const ahora = Date.now();
+
+  return Object.entries(DATASETS).map(([nombre, def]) => {
+    const fila = porDataset.get(nombre) || null;
+    const horas = fila?.ultima_ejecucion
+      ? (ahora - new Date(fila.ultima_ejecucion).getTime()) / 3600000
+      : null;
+    return {
+      dataset: nombre,
+      ultima_ejecucion: fila?.ultima_ejecucion ?? null,
+      filas: fila?.filas ?? null,
+      checksum: fila?.checksum ?? null,
+      modo: fila?.modo ?? null,
+      horas_desde: horas === null ? null : Math.round(horas * 10) / 10,
+      // Nunca recibido cuenta como viejo: es la senal de que el trabajo del
+      // agente no esta llegando.
+      viejo: horas === null || horas > def.frescuraHoras,
+      nunca_recibido: horas === null,
+      frescura_horas: def.frescuraHoras,
+    };
+  });
+};
+
 module.exports = {
   calcularChecksum,
   contarActivas,
+  estadoDatasets,
   aplicarFilas,
   aplicarBajas,
   cerrarCompleto,

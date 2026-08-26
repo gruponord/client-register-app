@@ -9,7 +9,9 @@
     "migrate": "node src/db/migrate.js",
     "seed": "node src/db/seed.js",
     "seed:plv": "node src/db/seedPlv.js",
-    "seed:ofertas": "node src/db/seedOfertas.js"
+    "seed:ofertas": "node src/db/seedOfertas.js",
+    "vigila:sync": "node src/jobs/vigilarSync.js",
+    "vigila:sync:seco": "node src/jobs/vigilarSync.js --seco"
   },
   "dependencies": {
     "bcrypt": "^5.1.1",

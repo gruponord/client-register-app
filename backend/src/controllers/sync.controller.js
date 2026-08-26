@@ -183,32 +183,10 @@ const checksum = async (req, res) => {
  */
 const estado = async (req, res) => {
   try {
-    const result = await poolApp.query(
-      'SELECT dataset, ultima_ejecucion, filas, checksum, modo FROM erp.datasets'
-    );
-    const porDataset = new Map(result.rows.map((f) => [f.dataset, f]));
-    const ahora = Date.now();
-
-    const datasets = Object.entries(DATASETS).map(([nombre, def]) => {
-      const fila = porDataset.get(nombre) || null;
-      const horas = fila?.ultima_ejecucion
-        ? (ahora - new Date(fila.ultima_ejecucion).getTime()) / 3600000
-        : null;
-      return {
-        dataset: nombre,
-        ultima_ejecucion: fila?.ultima_ejecucion ?? null,
-        filas: fila?.filas ?? null,
-        checksum: fila?.checksum ?? null,
-        modo: fila?.modo ?? null,
-        horas_desde: horas === null ? null : Math.round(horas * 10) / 10,
-        // Aviso si un dataset lleva mas de lo suyo sin recibir nada (§9).
-        // Nunca recibido tambien cuenta como viejo: es la senal de que el
-        // trabajo del agente no esta llegando.
-        viejo: horas === null || horas > def.frescuraHoras,
-        frescura_horas: def.frescuraHoras,
-      };
-    });
-
+    // El calculo vive en el servicio porque lo comparte con el aviso por correo
+    // (jobs/vigilarSync.js): "viejo" tiene que significar lo mismo en la
+    // pantalla y en el correo.
+    const datasets = await sync.estadoDatasets(poolApp);
     res.json({ datasets, alertas: datasets.filter((d) => d.viejo).map((d) => d.dataset) });
   } catch (err) {
     console.error('Error al consultar estado de sincronizacion:', err);

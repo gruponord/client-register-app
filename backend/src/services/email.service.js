@@ -350,4 +350,99 @@ const enviarEmailOferta = async (destinatario, oferta, pdfBuffer) => {
   });
 };
 
-module.exports = { enviarEmailSubmission, enviarEmailProspecting, enviarEmailPlv, enviarEmailOferta };
+/**
+ * Aviso de que la replica del ERP se ha quedado sin datos frescos.
+ *
+ * Un correo por COMPROBACION y no uno por dataset, y eso es deliberado: el caso
+ * que de verdad importa es que se apague el servidor del agente, y entonces los
+ * diez datasets envejecen a la vez. Con un correo por dataset serian diez
+ * mensajes del mismo incidente, y diez mensajes iguales se leen como ruido y se
+ * acaban filtrando -- que es justo lo que no puede pasar con este aviso.
+ *
+ * Se manda en texto plano ademas del HTML: esto lo va a leer alguien de
+ * sistemas, probablemente en el movil y con prisa.
+ *
+ * @param {string[]} destinatarios
+ * @param {object[]} rotos         datasets que acaban de quedarse viejos
+ * @param {object[]} recordados    incidencias abiertas que se recuerdan
+ * @param {object[]} recuperados   datasets que han vuelto a recibir datos
+ */
+const enviarEmailAlertaSync = async (destinatarios, { rotos, recordados, recuperados }) => {
+  const transporter = crearTransporter();
+
+  const nHoras = (d) => (d.horas_desde === null
+    ? 'nunca ha recibido nada'
+    : String(d.horas_desde).replace('.', ',') + ' h sin recibir (umbral ' + d.frescura_horas + ' h)');
+
+  // El asunto tiene que decir el que y el cuanto sin abrir el correo.
+  const asunto = rotos.length
+    ? 'ALERTA replica ERP: ' + rotos.length + ' dataset' + (rotos.length === 1 ? '' : 's') +
+      ' sin datos frescos'
+    : recordados.length
+      ? 'ALERTA replica ERP (sigue): ' + recordados.length + ' dataset' +
+        (recordados.length === 1 ? '' : 's') + ' sin datos frescos'
+      : 'Replica ERP recuperada: ' + recuperados.length + ' dataset' +
+        (recuperados.length === 1 ? '' : 's') + ' vuelve' + (recuperados.length === 1 ? '' : 'n') +
+        ' a recibir';
+
+  const bloque = (titulo, lista, color) => (lista.length ? `
+    <h3 style="color:${color};margin:20px 0 8px;font-size:15px;">${titulo}</h3>
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+      ${lista.map((d) => `<tr>
+        <td style="padding:6px 10px;border:1px solid #ddd;font-family:monospace;">${d.dataset}</td>
+        <td style="padding:6px 10px;border:1px solid #ddd;">${nHoras(d)}</td>
+      </tr>`).join('')}
+    </table>` : '');
+
+  const html = `
+    <div style="font-family:Arial,sans-serif;max-width:700px;color:#333;line-height:1.5;">
+      <h2 style="color:${rotos.length || recordados.length ? '#b00020' : '#0a7d32'};margin:0 0 4px;">
+        ${rotos.length || recordados.length ? 'La réplica del ERP no está recibiendo datos' : 'La réplica del ERP vuelve a recibir datos'}
+      </h2>
+      <p style="color:#666;font-size:13px;margin:0;">
+        Comprobado en altas.gruponord.com el ${new Date().toLocaleString('es-ES')}
+      </p>
+      ${bloque('Sin datos frescos', rotos, '#b00020')}
+      ${bloque('Siguen sin datos frescos', recordados, '#b00020')}
+      ${bloque('Recuperados', recuperados, '#0a7d32')}
+      ${rotos.length || recordados.length ? `
+      <p style="margin-top:20px;font-size:13px;">
+        Esto lo detecta Altas mirando su propia base de datos, sin preguntar al
+        agente: si el aviso ha salido, el dato está viejo, y da igual el motivo.
+        Lo primero que hay que comprobar es que el Sincronizador GNP siga vivo en
+        <strong>10.0.0.85</strong> (servidor encendido, disco con espacio y el
+        timer de systemd disparando).
+      </p>` : ''}
+      <p style="margin-top:20px;color:#888;font-size:11px;">
+        Aviso automático de altas.gruponord.com. Se avisa al detectar la
+        incidencia, una vez al día mientras siga abierta, y al recuperarse.
+      </p>
+    </div>`;
+
+  const texto = [
+    rotos.length || recordados.length
+      ? 'La replica del ERP no esta recibiendo datos.'
+      : 'La replica del ERP vuelve a recibir datos.',
+    'Comprobado en altas.gruponord.com el ' + new Date().toLocaleString('es-ES'),
+    ...(rotos.length ? ['', 'SIN DATOS FRESCOS:', ...rotos.map((d) => '  ' + d.dataset + ' - ' + nHoras(d))] : []),
+    ...(recordados.length ? ['', 'SIGUEN SIN DATOS FRESCOS:', ...recordados.map((d) => '  ' + d.dataset + ' - ' + nHoras(d))] : []),
+    ...(recuperados.length ? ['', 'RECUPERADOS:', ...recuperados.map((d) => '  ' + d.dataset + ' - ' + nHoras(d))] : []),
+    ...(rotos.length || recordados.length
+      ? ['', 'Comprobar que el Sincronizador GNP siga vivo en 10.0.0.85.'] : []),
+  ].join('\n');
+
+  await transporter.sendMail({
+    from: process.env.SMTP_FROM,
+    to: destinatarios.join(', '),
+    subject: asunto,
+    text: texto,
+    html,
+  });
+
+  return { asunto, destinatarios };
+};
+
+module.exports = {
+  enviarEmailSubmission, enviarEmailProspecting, enviarEmailPlv, enviarEmailOferta,
+  enviarEmailAlertaSync,
+};
