@@ -232,9 +232,12 @@ const crear = async (req, res) => {
         nombre: c0.nombre,
         poblacion: c0.poblacion,
         es_nuevo: false,
-        // El vendedor de la RUTA del cliente, si el usuario no tiene ficha propia.
-        vendedor_id: req.planta.vendedor_id || c0.vendedor_id,
-        vendedor_nombre: req.planta.vendedor_nombre || c0.vendedor_nombre,
+        // El vendedor con el que emite QUIEN LO HACE, no el de la ruta del
+        // cliente. Si el usuario no tiene ficha en el ERP se queda a null y el
+        // documento sale sin nombre, solo con el correo: poner ahi el nombre del
+        // vendedor de la ruta diria que el listado lo hizo alguien que no lo hizo.
+        vendedor_id: req.planta.vendedor_id,
+        vendedor_nombre: req.planta.vendedor_nombre,
       };
     }
 
@@ -279,9 +282,12 @@ const crear = async (req, res) => {
     // --- Guardar ---
     await cli.query('BEGIN');
     const oferta = await cli.query(
-      `INSERT INTO offers (user_id, seccion_id, vendedor_id, vendedor_nombre,
+      // El correo se lee de la tabla `users` y no del JWT: el token puede llevar
+      // hasta una hora emitido y el correo haber cambiado desde entonces.
+      `INSERT INTO offers (user_id, seccion_id, vendedor_id, vendedor_nombre, emisor_email,
                            cliente_id, local_id, cliente_nombre, cliente_poblacion, es_nuevo)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id, created_at`,
+       VALUES ($1,$2,$3,$4,(SELECT email FROM users WHERE id = $1),$5,$6,$7,$8,$9)
+       RETURNING id, created_at`,
       [req.usuario.id, req.planta.seccion_id, datosCliente.vendedor_id,
         datosCliente.vendedor_nombre, datosCliente.cliente_id, datosCliente.local_id,
         datosCliente.nombre, datosCliente.poblacion, datosCliente.es_nuevo]
@@ -328,7 +334,8 @@ const crear = async (req, res) => {
  */
 const montarOferta = async (id, usuario) => {
   const { rows } = await pool.query(
-    `SELECT o.*, p.name AS planta_nombre, p.logo_path, u.full_name AS usuario_nombre
+    `SELECT o.*, p.name AS planta_nombre, p.logo_path,
+            u.full_name AS usuario_nombre, u.email AS usuario_email
        FROM offers o
        LEFT JOIN plants p ON p.code = o.seccion_id
        LEFT JOIN users u ON u.id = o.user_id
@@ -349,7 +356,13 @@ const montarOferta = async (id, usuario) => {
     planta_nombre: o.planta_nombre,
     logo_path: o.logo_path,
     vendedor_id: o.vendedor_id,
+    // Solo hay nombre si el usuario tenia ficha de vendedor cuando emitio el
+    // listado. Si no la tenia, la cabecera del documento lleva unicamente el
+    // correo, sin nombre.
     vendedor_nombre: o.vendedor_nombre,
+    // El correo de quien lo emitio. El coalesce es para las ofertas guardadas
+    // antes de que existiera la columna.
+    emisor_email: o.emisor_email || o.usuario_email,
     usuario_nombre: o.usuario_nombre,
     cliente_id: o.cliente_id,
     local_id: o.local_id,

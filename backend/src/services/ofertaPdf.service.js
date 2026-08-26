@@ -163,13 +163,32 @@ const generarPdfOferta = (o) => new Promise((resolve, reject) => {
     y = doc.y;
   }
 
-  // Planta y vendedor, a la derecha del cliente. 155pt y con salto permitido:
-  // "CLAUDIO BOGDAN IORGULESCU" mide 142,7pt y hay nombres mas largos.
+  // Quien emite el listado, a la derecha del cliente.
+  //
+  // No se pone el nombre de la planta: ya lo dice el logotipo de la cabecera, y
+  // repetirlo quitaba sitio al dato que el cliente necesita, que es a quien
+  // escribir.
+  //
+  // El nombre sale SOLO si quien emite tiene ficha de vendedor en el ERP. Un
+  // usuario sin ficha -- un jefe, un administrativo -- deja solo el correo: poner
+  // ahi el nombre de la cuenta de la aplicacion no le dice nada al cliente.
+  //
+  // 155pt de ancho y con salto permitido, porque "CLAUDIO BOGDAN IORGULESCU"
+  // mide 142,7pt y hay nombres mas largos.
   const yDcha = 121;
-  doc.fillColor(GRIS_TEXTO).fontSize(9).font('Helvetica')
-    .text(o.planta_nombre || '', MARGEN + 340, yDcha, { width: 155, align: 'right' });
+  let yEmisor = yDcha;
   if (o.vendedor_nombre) {
-    doc.text(o.vendedor_nombre, MARGEN + 340, yDcha + 13, { width: 155, align: 'right' });
+    // 9pt y no 10: a 10 los nombres mas largos del grupo (161pt) se partirian
+    // en dos lineas y empujarian el correo.
+    doc.fillColor('#333333').fontSize(9).font('Helvetica-Bold')
+      .text(o.vendedor_nombre, MARGEN + 340, yEmisor, { width: 155, align: 'right' });
+    yEmisor = doc.y + 1;
+  }
+  if (o.emisor_email) {
+    // A 8pt: los correos del grupo llegan a 36 caracteres
+    // ("oihana.f.arratibel@casaayestaran.com") y a 10pt no cabrian en 155pt.
+    doc.fillColor(GRIS_TEXTO).fontSize(8).font('Helvetica')
+      .text(o.emisor_email, MARGEN + 340, yEmisor, { width: 155, align: 'right' });
   }
 
   y = Math.max(y, yDcha + 30) + 16;
