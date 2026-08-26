@@ -85,11 +85,30 @@ const calcularLinea = (l) => {
   const finalCaja = unidadesCaja > 0 ? centimos(finalUnidad * unidadesCaja) : null;
   const finalKilo = kilo ? centimos(precioKilo * factor) : null;
 
+  // Que lineas de precio merece la pena ensenar.
+  //
+  // Con tres presentaciones, algunas repiten el mismo numero y solo hacen ruido:
+  //
+  //   unidades_caja = 1  ->  el precio de caja ES el de unidad
+  //   peso_neto = 1 kg   ->  el precio de unidad ES el de kilo
+  //   las dos cosas      ->  los tres son el mismo, y solo se ensena el de kilo
+  //
+  // Las banderas van en la respuesta y no en cada pantalla para que el PDF, la
+  // pantalla del comercial y el detalle de administracion decidan lo mismo. Si
+  // cada uno lo resolviese por su cuenta, el papel y la pantalla acabarian
+  // ensenando distinto numero de lineas.
+  const mostrarCaja = unidadesCaja > 1;
+  const mostrarUnidad = !kilo || peso !== 1;
+
   return {
     es_kilo: kilo,
     peso_neto: kilo ? peso : null,
     unidades_caja: unidadesCaja || null,
     dto_pct: dto,
+
+    mostrar_unidad: mostrarUnidad,
+    mostrar_caja: mostrarCaja,
+    mostrar_kilo: kilo,
 
     precio_kilo: precioKilo,
     precio_unidad: precioUnidad,

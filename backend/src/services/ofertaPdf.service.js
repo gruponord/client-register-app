@@ -179,9 +179,13 @@ const generarPdfOferta = (o) => new Promise((resolve, reject) => {
 
   let alterna = false;
   for (const l of o.lineas) {
-    // Tres lineas de alto si se factura en kilos (hay fila de precio por kilo),
-    // dos si no.
-    const alto = l.es_kilo ? 35 : 25;
+    // El alto depende de cuantas lineas de precio se ensenen de verdad, no de si
+    // el articulo es de kilos: un articulo en kilos de 1 kg con 1 u/caja tiene
+    // los tres precios iguales y ocupa una sola linea.
+    const filasPrecio = (l.mostrar_unidad !== false ? 1 : 0) +
+      (l.mostrar_caja !== false && l.precio_caja !== null ? 1 : 0) +
+      (l.mostrar_kilo ? 1 : 0);
+    const alto = filasPrecio >= 3 ? 35 : filasPrecio === 2 ? 27 : 22;
 
     if (y + alto > PIE - 20) {
       doc.addPage();
@@ -205,25 +209,44 @@ const generarPdfOferta = (o) => new Promise((resolve, reject) => {
         : null,
     ]);
 
-    // Precio de tarifa: unidad, caja y, si aplica, kilo.
-    celda(doc, COLS.precio, y, [
-      { texto: eur(l.precio_unidad), tam: 8.5 },
-      l.precio_caja !== null ? { texto: eur(l.precio_caja) + '/cj', tam: 7.5, color: GRIS_TEXTO } : null,
-      l.es_kilo ? { texto: eur(l.precio_kilo) + '/kg', tam: 7.5, color: GRIS_TEXTO } : null,
-    ]);
+    // Precio de tarifa. Se omiten las lineas que repetirian el mismo importe:
+    // con 1 u/caja el precio de caja es el de unidad, y con 1 kg/u el de unidad
+    // es el de kilo.
+    const destacado = { tam: 8.5 };
+    const secundario = { tam: 7.5, color: GRIS_TEXTO };
+    const lineasPrecio = [];
+    if (l.mostrar_unidad !== false) lineasPrecio.push({ texto: eur(l.precio_unidad), ...destacado });
+    if (l.mostrar_kilo && l.mostrar_unidad === false) {
+      // Sin precio de unidad, el de kilo pasa a ser el importe principal.
+      lineasPrecio.push({ texto: eur(l.precio_kilo) + '/kg', ...destacado });
+    }
+    if (l.mostrar_caja !== false && l.precio_caja !== null) {
+      lineasPrecio.push({ texto: eur(l.precio_caja) + '/cj', ...secundario });
+    }
+    if (l.mostrar_kilo && l.mostrar_unidad !== false) {
+      lineasPrecio.push({ texto: eur(l.precio_kilo) + '/kg', ...secundario });
+    }
+    celda(doc, COLS.precio, y, lineasPrecio);
 
     doc.fillColor(Number(l.dto_pct) > 0 ? AZUL : GRIS_SUAVE)
       .fontSize(9).font(Number(l.dto_pct) > 0 ? 'Helvetica-Bold' : 'Helvetica')
       .text(pct(l.dto_pct), MARGEN + COLS.dto.x + 4, y + 6,
         { width: COLS.dto.w - 8, align: 'right', lineBreak: false });
 
-    // Precio final: lo que importa, en negrita.
-    celda(doc, COLS.final, y, [
-      { texto: eur(l.precio_final_unidad), tam: 9, fuente: 'Helvetica-Bold' },
-      l.precio_final_caja !== null
-        ? { texto: eur(l.precio_final_caja) + '/cj', tam: 7.5, color: GRIS_TEXTO } : null,
-      l.es_kilo ? { texto: eur(l.precio_final_kilo) + '/kg', tam: 7.5, color: GRIS_TEXTO } : null,
-    ]);
+    // Precio final: lo que importa, en negrita, con las mismas omisiones.
+    const fuerte = { tam: 9, fuente: 'Helvetica-Bold' };
+    const lineasFinal = [];
+    if (l.mostrar_unidad !== false) lineasFinal.push({ texto: eur(l.precio_final_unidad), ...fuerte });
+    if (l.mostrar_kilo && l.mostrar_unidad === false) {
+      lineasFinal.push({ texto: eur(l.precio_final_kilo) + '/kg', ...fuerte });
+    }
+    if (l.mostrar_caja !== false && l.precio_final_caja !== null) {
+      lineasFinal.push({ texto: eur(l.precio_final_caja) + '/cj', ...secundario });
+    }
+    if (l.mostrar_kilo && l.mostrar_unidad !== false) {
+      lineasFinal.push({ texto: eur(l.precio_final_kilo) + '/kg', ...secundario });
+    }
+    celda(doc, COLS.final, y, lineasFinal);
 
     doc.moveTo(MARGEN, y + alto).lineTo(MARGEN + ANCHO, y + alto)
       .strokeColor(GRIS_BORDE).lineWidth(0.5).stroke();

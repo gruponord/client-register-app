@@ -109,6 +109,12 @@ existe esa API y entonces abre el PDF para guardarlo.
 fechas. El detalle enseña las líneas **con los precios que se entregaron**, no
 los del catálogo de hoy: al guardar se congelan.
 
+## Ojo con las pruebas del receptor
+
+Las suites de sincronización hacen `TRUNCATE` de las tablas de `erp` para poder
+contar filas, así que **se llevan la muestra por delante**. Si después de
+ejecutarlas el catálogo sale vacío, no está roto: hay que volver a importar.
+
 ## Cosas que conviene saber
 
 - **Los precios se leen del ERP al guardar**, nunca de la petición. El navegador

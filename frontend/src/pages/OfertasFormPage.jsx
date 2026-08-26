@@ -11,6 +11,21 @@ const eur = (n) => (n === null || n === undefined ? '—'
   : Number(n).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €');
 const num = (n) => String(Number(n)).replace('.', ',');
 
+// Que lineas de precio se ensenan. Las banderas las calcula el servidor
+// (precios.service.js) y viajan con cada articulo, para que el PDF, esta
+// pantalla y el detalle de administracion coincidan.
+//
+// Con 1 u/caja el precio de caja repite el de unidad, y con 1 kg/u el de unidad
+// repite el de kilo: en esos casos la linea sobra.
+const lineasPrecio = ({ mostrarUnidad, mostrarCaja, esKilo, unidad, caja, kilo }) => {
+  const l = [];
+  if (mostrarUnidad) l.push({ v: unidad, suf: '', principal: true });
+  else if (esKilo) l.push({ v: kilo, suf: '/kg', principal: true });
+  if (mostrarCaja && caja !== null && caja !== undefined) l.push({ v: caja, suf: '/cj' });
+  if (esKilo && mostrarUnidad) l.push({ v: kilo, suf: '/kg' });
+  return l;
+};
+
 const OfertasFormPage = ({ onCambiarFormulario, permitidas = [] }) => {
   const navigate = useNavigate();
   const { usuario, cerrarSesion } = useAuth();
@@ -469,9 +484,19 @@ const OfertasFormPage = ({ onCambiarFormulario, permitidas = [] }) => {
                         {a.es_kilo && <span className="text-indigo-600"> · {num(a.peso_neto)} kg/u</span>}
                       </div>
                       <div className="text-sm mt-1">
-                        <span className="font-semibold text-gray-900">{eur(a.precio_unidad)}</span>
-                        <span className="text-xs text-gray-500"> /ud</span>
-                        {a.es_kilo && <span className="text-xs text-gray-500"> · {eur(a.precio_kilo)}/kg</span>}
+                        {lineasPrecio({
+                          mostrarUnidad: a.mostrar_unidad, mostrarCaja: a.mostrar_caja,
+                          esKilo: a.es_kilo, unidad: a.precio_unidad,
+                          caja: a.precio_caja, kilo: a.precio_kilo,
+                        }).map((x, i) => (
+                          <span key={i}>
+                            {i > 0 && <span className="text-xs text-gray-400"> · </span>}
+                            <span className={x.principal ? 'font-semibold text-gray-900' : 'text-xs text-gray-500'}>
+                              {eur(x.v)}{x.suf}
+                            </span>
+                            {x.principal && !x.suf && <span className="text-xs text-gray-500"> /ud</span>}
+                          </span>
+                        ))}
                         {a.dto_pct > 0 && <span className="text-xs text-indigo-600 font-medium"> · -{num(a.dto_pct)}%</span>}
                       </div>
                     </div>
@@ -524,15 +549,22 @@ const OfertasFormPage = ({ onCambiarFormulario, permitidas = [] }) => {
                       </div>
                       <div>
                         <div className="text-gray-400">Precio</div>
-                        <div>{eur(l.articulo.precio_unidad)}</div>
-                        {l.articulo.precio_caja !== null && <div className="text-gray-500">{eur(l.articulo.precio_caja)}/cj</div>}
-                        {l.articulo.es_kilo && <div className="text-gray-500">{eur(l.articulo.precio_kilo)}/kg</div>}
+                        {lineasPrecio({
+                          mostrarUnidad: l.articulo.mostrar_unidad, mostrarCaja: l.articulo.mostrar_caja,
+                          esKilo: l.articulo.es_kilo, unidad: l.articulo.precio_unidad,
+                          caja: l.articulo.precio_caja, kilo: l.articulo.precio_kilo,
+                        }).map((x, i) => (
+                          <div key={i} className={x.principal ? '' : 'text-gray-500'}>{eur(x.v)}{x.suf}</div>
+                        ))}
                       </div>
                       <div>
                         <div className="text-gray-400">Precio final</div>
-                        <div className="font-semibold">{eur(c.unidad)}</div>
-                        {c.caja !== null && <div className="text-gray-500">{eur(c.caja)}/cj</div>}
-                        {c.kilo !== null && <div className="text-gray-500">{eur(c.kilo)}/kg</div>}
+                        {lineasPrecio({
+                          mostrarUnidad: l.articulo.mostrar_unidad, mostrarCaja: l.articulo.mostrar_caja,
+                          esKilo: l.articulo.es_kilo, unidad: c.unidad, caja: c.caja, kilo: c.kilo,
+                        }).map((x, i) => (
+                          <div key={i} className={x.principal ? 'font-semibold' : 'text-gray-500'}>{eur(x.v)}{x.suf}</div>
+                        ))}
                       </div>
                     </div>
                     <div className="flex items-center gap-2 mt-2">
