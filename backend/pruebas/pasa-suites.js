@@ -6,6 +6,10 @@
 // con "todo correcto" Y sale con codigo 0.
 const { spawnSync, spawn, execSync } = require('child_process');
 const path = require('path');
+// El .env primero: la guarda mira DATABASE_URL, y este fichero no lo cargaba
+// porque hasta ahora solo lanzaba procesos hijo, que lo cargan cada uno.
+require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+require('./guarda');   // aborta si la base no es de desarrollo
 
 const AQUI = __dirname;
 const APP = path.join(__dirname, '..');
@@ -79,6 +83,11 @@ for (const s of lista) {
 };
 
 (async () => {
+  // Segunda barrera: por un tunel SSH, produccion tambien se ve como localhost.
+  const pool = require(path.join(__dirname, '..', 'src/config/db.js'));
+  await require('./guarda').noEsUnaReplicaDeVerdad(pool);
+  await pool.end();
+
   const srv = await arrancar();
   try { correr(CON_SERVIDOR); } finally {
     try { process.kill(-srv.pid); } catch (_) { try { srv.kill(); } catch (_) {} }

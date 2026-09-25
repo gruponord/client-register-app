@@ -22,6 +22,7 @@ if (!require('fs').existsSync(path.join(AGENTE, 'src/hash.js'))) {
 process.env.PORT = '3998';
 process.env.SYNC_API_KEY = 'clave-de-prueba-cluster';
 require('dotenv').config({ path: path.join(APP, '.env') });
+require('./guarda');   // aborta si la base no es de desarrollo
 process.env.PORT = '3998';
 
 if (cluster.isPrimary) {

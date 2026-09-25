@@ -8,6 +8,7 @@
 const path = require('path');
 const APP = path.join(__dirname, '..');
 require('dotenv').config({ path: path.join(APP, '.env') });
+require('./guarda');   // aborta si la base no es de desarrollo
 const jwt = require('jsonwebtoken');
 const pool = require(path.join(APP, 'src/config/db.js'));
 

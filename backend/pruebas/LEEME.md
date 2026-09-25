@@ -57,6 +57,24 @@ sirven para dar detalle.
 | `prueba-ofertas6` | el descuento máximo: empieza en 0, sube al tope, pasarse necesita permiso |
 | `prueba-vigilancia` | el aviso por correo cuando la réplica deja de recibir datos |
 
+## Solo contra una base de desarrollo
+
+Las suites son **destructivas**: cinco hacen `TRUNCATE` del esquema `erp` y todas
+siembran y borran filas. Como ahora viajan con el repositorio, están también en
+el servidor de producción, donde `DATABASE_URL` apunta a la base de verdad — y un
+`npm run pruebas` allí se llevaría la réplica entera por delante.
+
+`guarda.js` lo impide, con dos barreras independientes:
+
+1. **El host de `DATABASE_URL`** tiene que ser local. Se comprueba al requerir el
+   módulo, así que basta con que cada suite lo requiera: no hay que acordarse de
+   llamar a nada.
+2. **Que la base no haya recibido lotes del agente** en los últimos 30 días. Hace
+   falta porque por un túnel SSH producción también se ve como `localhost`. Esta
+   la ejecuta el lanzador una vez, antes de arrancar nada.
+
+Si alguna salta, no se ejecuta nada y se sale con código 1.
+
 ## Dos dependencias que conviene conocer
 
 **Las cuatro suites de sincronización necesitan el proyecto del agente.**

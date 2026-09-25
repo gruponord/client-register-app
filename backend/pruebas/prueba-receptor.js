@@ -93,6 +93,7 @@ const comprobar = (etiqueta, ok, detalle) => {
 
 (async () => {
   require('dotenv').config({ path: path.join(APP, '.env') });
+  require('./guarda');   // aborta si la base no es de desarrollo
   const pool = require(path.join(APP, 'src/config/db.js'));
   await pool.query('TRUNCATE erp.vendedores, erp.secciones, erp.datasets, erp.sync_recibidos');
 

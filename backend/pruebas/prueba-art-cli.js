@@ -18,6 +18,7 @@ if (!require('fs').existsSync(path.join(AGENTE, 'src/hash.js'))) {
 }
 const APP = path.join(__dirname, '..');
 require('dotenv').config({ path: path.join(APP, '.env') });
+require('./guarda');   // aborta si la base no es de desarrollo
 
 const { hashFila, serializarClave, normalizarFila } = require(path.join(AGENTE, 'src/hash.js'));
 const BASE = 'http://127.0.0.1:3999';
