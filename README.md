@@ -124,8 +124,29 @@ npm install
 npm run build
 
 # Reiniciar backend
-pm2 restart client-register-api
+pm2 reload client-register-api --update-env
 ```
+
+**Antes de migrar, copia de seguridad:**
+
+```bash
+sudo -u postgres pg_dump client_register | gzip > /root/copias/antes-de-$(date +%Y%m%d-%H%M).sql.gz
+```
+
+Tres cosas que conviene saber:
+
+- **`npm run migrate` reejecuta TODAS las migraciones**, no solo las nuevas. Cada
+  migración tiene que ser idempotente: `ADD COLUMN IF NOT EXISTS`, `INSERT ... ON
+  CONFLICT`, y los `ALTER` que cambian un tipo dentro de un `DO` con guarda sobre
+  `information_schema`. Una migración que falla al reejecutarse aborta el resto.
+- `npm install` en `frontend/` deja `package-lock.json` modificado (el npm del
+  servidor quita campos que añade el de Windows). Es ruido: `git checkout --
+  frontend/package-lock.json` antes del `git pull`.
+- En PM2 hay **dos** procesos. `client-register-vigila-sync` aparece como
+  `stopped` casi siempre, y es lo normal: es un trabajo de una pasada que PM2
+  arranca en punto cada hora y que termina. No ponerle `autorestart: true`, que
+  lo dejaría reiniciándose en bucle. Si se añade una app al ecosystem, hace falta
+  `pm2 save` para que sobreviva a un reinicio del servidor.
 
 ### Despliegue desde cero
 
@@ -144,6 +165,16 @@ ln -s /etc/nginx/sites-available/altas.gruponord.com /etc/nginx/sites-enabled/
 nginx -t
 systemctl reload nginx
 ```
+
+> **Ojo en el servidor que ya está en marcha.** `nginx/app.conf` sirve para montar
+> uno desde cero, pero **no es lo que corre hoy**: Certbot reestructuró el fichero
+> al poner el SSL. Para añadir una ruta hay que editar el del servidor a mano
+> (copia previa, `nginx -t` antes de recargar), no sobrescribirlo con éste.
+>
+> Y toda ruta estática nueva necesita su propio `location`. Sin él, la petición
+> cae en el `location /` del frontend y el `try_files` devuelve el `index.html`
+> **con un 200**: no se ve como un error, se ve como una imagen rota. Pasó con
+> `/logos`, que sirve los logotipos de las plantas para el PDF de los listados.
 
 #### 3. Configurar SSL con Certbot
 
@@ -178,13 +209,16 @@ client-register-app/
 │   │   ├── controllers/          # Lógica de negocio (auth, users, masters, plants, submissions, audit)
 │   │   ├── middlewares/          # Auth JWT, auditoría auto, uploads Multer, validaciones
 │   │   ├── routes/               # Rutas API
-│   │   ├── services/             # Email (Nodemailer) y ficheros
+│   │   ├── services/             # Email, ficheros, PDF, precios, receptor del ERP
+│   │   ├── jobs/vigilarSync.js   # Aviso si la réplica deja de recibir datos
 │   │   └── db/
-│   │       ├── migrations/       # SQL numerados (001_init, 002_seeds, 003_password_reset)
+│   │       ├── migrations/       # SQL numerados, 001 a 017. Se reejecutan TODAS
 │   │       ├── migrate.js        # Script de migraciones
 │   │       └── seed.js           # Seed usuario admin
+│   ├── pruebas/                  # Once suites + lanzador (npm run pruebas)
+│   ├── logos/                    # Logotipo de cada planta, para el PDF de listados
 │   ├── uploads/                  # Ficheros subidos (gitignored)
-│   ├── ecosystem.config.js       # Config PM2
+│   ├── ecosystem.config.js       # Config PM2: la API y la vigilancia
 │   └── .env.example
 ├── frontend/
 │   ├── src/
@@ -195,8 +229,10 @@ client-register-app/
 │   │   │   ├── ForgotPasswordPage.jsx
 │   │   │   ├── ResetPasswordPage.jsx
 │   │   │   ├── FormPage.jsx      # Formulario principal de altas
+│   │   │   ├── OfertasFormPage.jsx  # Listado de precios, en tres pasos
 │   │   │   ├── SuccessPage.jsx
-│   │   │   └── admin/            # Dashboard, Users, Masters, Plants, Submissions, Audit
+│   │   │   └── admin/            # Dashboard, Users, Masters, Plants, Submissions,
+│   │   │                         # Offers (listados de precios), Audit
 │   │   └── services/api.js       # Axios con interceptors JWT
 │   └── public/logo_GNP.jpg
 └── nginx/app.conf
@@ -219,9 +255,79 @@ client-register-app/
 - Consulta de respuestas con filtros, detalle expandible y exportación a Excel
 - Gestión de prospecciones de cerveza: listado con filtros (planta, fechas), detalle expandible y exportación a Excel con columnas ID, FECHA, PLANTA, CLIENTE, REGISTRADO POR, VOLUMEN BARRILES/SEMANA, MARCA
 - Maestro `free_barrels_options` para la pregunta "Actualmente con tu proveedor, ¿tienes barriles sin cargo?" (gestionable desde Admin > Maestros Prospección > Barriles Sin Cargo)
-- Sistema de permisos por utilidad: cada usuario tiene marcadas qué utilidades puede usar (Alta de Clientes, Prospección de Cerveza, Petición PLV). El admin siempre ve todas.
+- Sistema de permisos por utilidad: cada usuario tiene marcadas qué utilidades puede usar (Alta de Clientes, Prospección de Cerveza, Petición PLV, Listado de Precios). El admin siempre ve todas.
 - Utilidad **Petición PLV**: formulario para pedir material PLV a una empresa del grupo. Catálogo por empresa con grupos (ESTABLECIMIENTO, EVENTOS) y marcas. Asignación multi-empresa por usuario. Email destinatario por empresa. Listado y detalle desde admin (Peticiones PLV).
+- Utilidad **Listado de Precios**: ver más abajo.
 - Log de auditoría con filtros por usuario, acción, entidad y rango de fechas
+- Estado de la réplica del ERP (`/api/sync/v1/estado`): cuándo llegó cada dataset por última vez
+
+## Réplica del ERP
+
+Los datos maestros del ERP (clientes, artículos, tarifas, vendedores, rutas) **no
+se consultan al ERP**: los empuja por HTTPS el agente **Sincronizador GNP**, que
+corre en la oficina, y la app los guarda en el esquema `erp` de su propia base de
+datos. Si se cae el agente, la oficina o el ERP, la aplicación sigue funcionando
+con los datos de la última entrega.
+
+Diez datasets, unas 148.000 filas. El protocolo (lotes, gzip, idempotencia,
+bajas lógicas, checksum de reparación) está definido en `CONTRATO-SYNC.md`, en el
+repositorio del agente, y **no se copia aquí**: dos copias de una definición
+acaban siendo dos definiciones distintas.
+
+Lo específico de esta app es el registro de datasets, en
+`backend/src/config/datasets.js`. Añadir uno es una entrada ahí y una tabla en
+una migración.
+
+Reglas al tocar esto:
+
+- El esquema `erp` **no es de la app**: lo sobrescribe el agente. Nada de añadir
+  columnas propias ni escribir en él desde un controlador.
+- **Sin claves foráneas** contra `erp`: los datasets tienen cadencias distintas y
+  un huérfano temporal es normal.
+- Columnas de negocio en `TEXT` y `BIGINT`, no `VARCHAR(n)` ni `INTEGER`: una
+  réplica no debe ser más estricta que su origen. Un ancho corto pierde la fila
+  **en silencio** y el checksum no lo detecta.
+
+### Vigilancia
+
+El agente avisa por correo de sus propios fallos, pero no puede avisar de que
+está muerto: si se apaga su servidor, de allí no sale ningún correo. De eso se
+encarga esta app, mirando **solo su propia base de datos**: si un dataset lleva
+más horas de las suyas sin recibir nada, manda un correo.
+
+`backend/src/jobs/vigilarSync.js`, como app aparte de PM2 que se dispara cada
+hora. Destino en `ALERTA_PARA`. Ver el detalle en el propio fichero.
+
+## Listado de Precios
+
+Utilidad para que el comercial monte una lista de precios para un cliente desde
+el móvil y se la entregue en el momento, en PDF, por WhatsApp o por correo.
+
+- El cliente sale de la réplica del ERP (filtrado por planta, ruta y día de
+  visita) o se escribe a mano si todavía no está dado de alta.
+- Los artículos, del catálogo de la planta, con su tarifa.
+- El **descuento** empieza en 0 y sube hasta el máximo autorizado de cada
+  artículo (`articulos_sec.por_dto`). Pasar de ahí necesita el permiso
+  `ofertas_dto`. El máximo no aparece en el documento del cliente.
+- El PDF lleva el logotipo de la planta y sale **en catalán en Mapsa y Nord**, en
+  castellano en el resto.
+- Todo se congela al generar: precio, descuento y máximo. Un listado de hace tres
+  meses sigue diciendo lo que dijo.
+
+Guía completa en `LEEME-OFERTAS.md`.
+
+## Pruebas
+
+```bash
+cd backend
+npm run pruebas
+```
+
+Once suites sobre el receptor del ERP, los listados de precios y la vigilancia.
+Sin framework: cada una siembra lo suyo, comprueba y limpia. El lanzador levanta
+el servidor de pruebas y lo para al terminar.
+
+Detalle en `backend/pruebas/LEEME.md`.
 
 ### Seguridad
 - JWT con access/refresh tokens
@@ -264,6 +370,24 @@ client-register-app/
 | GET | /api/plv/:id | Detalle de petición PLV con líneas | Admin |
 | GET | /api/audit | Log de auditoría (paginado + filtros) | Admin |
 | GET | /api/health | Health check | Público |
+| GET | /api/offers/contexto | Plantas del usuario y si puede pasar del dto máximo | Autenticado + utilidad `ofertas` |
+| GET | /api/offers/rutas | Rutas de la planta, agrupadas por vendedor | Utilidad `ofertas` |
+| GET | /api/offers/clientes | Buscar clientes: ruta, día de visita y texto libre | Utilidad `ofertas` |
+| GET | /api/offers/filtros | Familias y proveedores del catálogo de la planta | Utilidad `ofertas` |
+| GET | /api/offers/articulos | Catálogo con precios y descuento máximo | Utilidad `ofertas` |
+| POST | /api/offers | Guardar un listado (congela precios, dto y máximo) | Utilidad `ofertas` |
+| GET | /api/offers/:id | Detalle de un listado | Autenticado (el suyo) / Admin |
+| GET | /api/offers/:id/pdf | El documento en PDF | Autenticado (el suyo) / Admin |
+| POST | /api/offers/:id/enviar | Mandarlo al cliente por correo | Autenticado (el suyo) |
+| GET | /api/offers | Listar listados emitidos (paginado + filtros) | Admin |
+| POST | /api/sync/v1/:dataset | Recibir un lote del ERP | `X-Api-Key` |
+| POST | /api/sync/v1/:dataset/cerrar | Cerrar un envío completo | `X-Api-Key` |
+| GET | /api/sync/v1/:dataset/checksum | Checksum, para que el agente se compare | `X-Api-Key` |
+| GET | /api/sync/v1/estado | Frescura de cada dataset de la réplica | Admin |
+
+Los cuatro de `/api/sync/v1/` no van con JWT sino con `X-Api-Key`: el agente no
+es un usuario. Se montan **antes** del `express.json()` global, porque los lotes
+llegan comprimidos y pesan más que el límite por defecto.
 
 ## Email
 
