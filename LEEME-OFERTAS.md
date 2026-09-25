@@ -70,9 +70,10 @@ Después, en la pantalla de admin (`/admin/usuarios`) hay que marcarle:
 | Utilidad | Para qué |
 |---|---|
 | `Generador de Ofertas` | entrar en la utilidad |
-| `Ofertas: editar descuento` | poder cambiar el % de descuento |
+| `Ofertas: editar descuento` | poder **pasar del máximo** autorizado |
 
-Sin la segunda, el descuento se ve pero no se edita.
+Sin la segunda se puede descontar igual, hasta el máximo de cada artículo; lo que
+no se puede es pasarse de ahí.
 
 Un usuario cuyo correo **no** cuadre con ningún vendedor no se queda fuera: le
 salen las cuatro plantas para que elija, y el listado se guarda sin vendedor.
@@ -97,8 +98,33 @@ Y abrir **http://localhost:5173**. Ojo: Vite escucha en IPv6, así que
    que busca en descripción y código, igual que en los clientes y también sin
    botón. El catálogo de la planta son entre 620 y 940 artículos y se puede
    hojear entero. Botón `+` para añadir, y una barra fija abajo con el recuento.
-3. **Listado** — las líneas con formato, precio, descuento y precio final. El
-   descuento es editable si se tiene el permiso.
+3. **Listado** — las líneas con formato, precio, descuento y precio final.
+
+### El descuento
+
+`articulos_sec.por_dto` del ERP es el **descuento máximo autorizado** para ese
+artículo, no un descuento que haya que aplicar. En la pantalla son dos datos:
+
+| | |
+|---|---|
+| **Dto. máx** | el tope del artículo. Se enseña y no se toca. |
+| **% Dto.** | el que se aplica. Empieza en **0** y sube hasta el tope. |
+
+Si nadie lo toca, el listado sale a precio de tarifa íntegro. Pasar del tope
+necesita el permiso `ofertas_dto`; el servidor lo comprueba además de la
+pantalla, porque un POST a mano se saltaría cualquier control del navegador.
+
+El tope **no sale en el impreso**: el cliente no tiene por qué leer hasta dónde
+se le podía haber bajado. Vive en la pantalla y en administración.
+
+Se congela con la línea (`offer_items.dto_max`), por lo mismo que el precio: el
+del ERP cambia, y sin guardarlo nadie podría comprobar después si un listado de
+hace tres meses respetaba lo autorizado entonces.
+
+> Hasta el 25/09/2026 la utilidad trataba `por_dto` como descuento de tarifa y lo
+> aplicaba sola, así que los listados salían con el máximo descuento sin que
+> nadie lo decidiera. Las líneas emitidas antes de esa fecha conservan lo que se
+> entregó, que es como debe ser.
 4. **Generar** — guarda y ofrece *Ver PDF*, *Compartir* y enviar por correo.
 
 `Compartir` usa `navigator.share()` con el fichero, así que en un móvil abre el
