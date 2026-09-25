@@ -152,7 +152,17 @@ const OfertasFormPage = ({ onCambiarFormulario, permitidas = [] }) => {
   const enCarrito = useMemo(
     () => new Set(carrito.map((l) => l.articulo.articulo_id)), [carrito]);
 
-  const anadir = (a) => setCarrito((c) => [...c, { articulo: a, dto_pct: a.dto_pct }]);
+  // Alguna linea por encima de su tope? Solo importa si el usuario no tiene el
+  // permiso para pasarse; con el, es una decision suya.
+  const hayExcesos = useMemo(() => carrito.some((l) => {
+    const tope = Number(l.articulo.dto_max) || 0;
+    return (Number(String(l.dto_pct).replace(',', '.')) || 0) - tope > 0.001;
+  }), [carrito]);
+
+  // El descuento empieza SIEMPRE en 0. El `dto_max` que trae el articulo es el
+  // techo autorizado, no una propuesta: si el comercial no decide nada, el
+  // cliente recibe el precio de tarifa integro.
+  const anadir = (a) => setCarrito((c) => [...c, { articulo: a, dto_pct: 0 }]);
   const quitar = (id) => setCarrito((c) => c.filter((l) => l.articulo.articulo_id !== id));
   const cambiarDto = (id, v) => setCarrito((c) => c.map((l) =>
     l.articulo.articulo_id === id ? { ...l, dto_pct: v } : l));
@@ -509,7 +519,11 @@ const OfertasFormPage = ({ onCambiarFormulario, permitidas = [] }) => {
                             </span>
                           </span>
                         ))}
-                        {a.dto_pct > 0 && <span className="text-xs text-indigo-600 font-medium"> · -{num(a.dto_pct)}%</span>}
+                        {a.dto_max > 0 && (
+                          // "max" y no "-5%": es lo que se PUEDE descontar, no
+                          // algo que ya este aplicado en ese precio.
+                          <span className="text-xs text-gray-500"> · máx -{num(a.dto_max)}%</span>
+                        )}
                       </div>
                     </div>
                     <button onClick={() => (dentro ? quitar(a.articulo_id) : anadir(a))}
@@ -576,27 +590,55 @@ const OfertasFormPage = ({ onCambiarFormulario, permitidas = [] }) => {
                         ))}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 mt-2">
-                      <span className="text-xs text-gray-400">% Dto.</span>
-                      {ctx.puede_editar_dto ? (
-                        <input type="number" min="0" max="100" step="0.5" value={l.dto_pct}
-                          onChange={(e) => cambiarDto(l.articulo.articulo_id, e.target.value)}
-                          className="w-20 border border-gray-300 rounded px-2 py-1 text-sm text-right" />
-                      ) : (
-                        <span className="text-sm font-medium">{num(l.dto_pct)} %</span>
-                      )}
-                    </div>
+                    {(() => {
+                      // El tope autorizado del articulo. Se ENSEÑA siempre y no
+                      // se puede tocar; el descuento que se aplica empieza en 0
+                      // y sube hasta ahi. Con el permiso se puede pasar, y
+                      // entonces se avisa en rojo: pasarse es una excepcion, no
+                      // el modo normal de trabajar.
+                      const tope = Number(l.articulo.dto_max) || 0;
+                      const puesto = Number(String(l.dto_pct).replace(',', '.')) || 0;
+                      const pasado = puesto - tope > 0.001;
+                      return (
+                        <div className="flex items-center flex-wrap gap-x-3 gap-y-1 mt-2">
+                          <span className="text-xs text-gray-400">
+                            Dto. máx <span className="text-gray-700 font-medium">{num(tope)} %</span>
+                          </span>
+                          <span className="text-xs text-gray-400">% Dto.</span>
+                          <input type="number" min="0" max={ctx.puede_editar_dto ? 100 : tope}
+                            step="0.5" value={l.dto_pct} disabled={!ctx.puede_editar_dto && tope <= 0}
+                            onChange={(e) => cambiarDto(l.articulo.articulo_id, e.target.value)}
+                            className={`w-20 border rounded px-2 py-1 text-sm text-right disabled:bg-gray-100 ${
+                              pasado ? 'border-red-400 text-red-700' : 'border-gray-300'}`} />
+                          {pasado && (
+                            <span className="text-xs text-red-600 font-medium">
+                              supera el máximo
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                 );
               })}
             </div>
             <div className="p-4 border-t">
-              <button onClick={guardar} disabled={guardando || !carrito.length} className={`${btnPri} w-full`}>
+              {/* Si alguna linea se pasa del tope sin permiso, se para aqui: el
+                  servidor lo rechazaria igual, y es mejor decirlo antes de que
+                  pulse que devolverle un error despues. */}
+              <button onClick={guardar}
+                disabled={guardando || !carrito.length || (!ctx.puede_editar_dto && hayExcesos)}
+                className={`${btnPri} w-full`}>
                 {guardando ? 'Generando…' : 'Generar listado'}
               </button>
-              {!ctx.puede_editar_dto && (
+              {!ctx.puede_editar_dto && hayExcesos ? (
+                <p className="text-xs text-red-600 mt-2 text-center">
+                  Hay líneas por encima del descuento máximo. Bájalas para continuar.
+                </p>
+              ) : (
                 <p className="text-xs text-gray-500 mt-2 text-center">
-                  No tienes permiso para cambiar descuentos. Se aplican los del sistema.
+                  El descuento empieza en 0 y puede subir hasta el máximo de cada artículo.
+                  {!ctx.puede_editar_dto && ' Para pasar de ahí hace falta permiso.'}
                 </p>
               )}
             </div>

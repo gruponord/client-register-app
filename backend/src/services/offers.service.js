@@ -443,12 +443,18 @@ const buscarArticulos = async (f) => {
       // anadirlo aqui y al SELECT.
       bajo_pedido: r.bajo_pedido === true,
       a_liquidar: r.a_liquidar === true,
+
+      // `por_dto` del ERP es el descuento MAXIMO autorizado para este articulo,
+      // no un descuento que haya que aplicar. Viaja como tope para la pantalla;
+      // el descuento que se aplica lo decide el comercial y empieza en 0.
+      dto_max: Number(r.por_dto) || 0,
+
       ...calcularLinea({
         unidad: r.unidad,
         precio_vta: r.precio_vta,
         peso_neto: r.peso_neto,
         unidades_caja: r.unidades_caja,
-        dto_pct: r.por_dto,
+        dto_pct: 0,
       }),
     })),
   };

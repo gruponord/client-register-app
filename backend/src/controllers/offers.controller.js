@@ -258,25 +258,37 @@ const crear = async (req, res) => {
     }
 
     // --- Los descuentos ---
+    //
+    // `por_dto` del ERP es el descuento MAXIMO autorizado para el articulo, no
+    // un descuento que haya que aplicar. El que se aplica lo decide el
+    // comercial y empieza en 0: si no lo toca, el cliente recibe el precio de
+    // tarifa integro.
+    //
+    // Se valida aqui y no solo en la pantalla porque el tope es una regla de
+    // negocio: un POST a mano se saltaria cualquier control del navegador.
     const puede = await puedeEditarDto(req.usuario);
     const preparadas = [];
     for (const l of lineas) {
       const a = porId.get(String(l.articulo_id));
-      const porDefecto = Number(a.por_dto) || 0;
-      const pedido = l.dto_pct === undefined || l.dto_pct === null ? porDefecto : Number(l.dto_pct);
+      const tope = Number(a.por_dto) || 0;
+      // Sin descuento indicado, cero. Nunca el tope.
+      const pedido = l.dto_pct === undefined || l.dto_pct === null ? 0 : Number(l.dto_pct);
 
       if (!Number.isFinite(pedido) || pedido < 0 || pedido > 100) {
         return res.status(400).json({ error: 'Descuento no válido en ' + a.articulo_id });
       }
-      const editado = Math.abs(pedido - porDefecto) > 0.001;
-      if (editado && !puede) {
+      // Pasarse del tope necesita permiso; llegar hasta el, no.
+      const excede = pedido - tope > 0.001;
+      if (excede && !puede) {
         return res.status(403).json({
-          error: 'No tienes permiso para cambiar el descuento',
-          code: 'SIN_PERMISO_DTO',
+          error: 'El descuento de ' + a.articulo_id + ' supera el máximo autorizado ('
+            + tope.toFixed(2).replace(/\.?0+$/, '') + ' %)',
+          code: 'DTO_SUPERA_MAXIMO',
           articulo: a.articulo_id,
+          dto_max: tope,
         });
       }
-      preparadas.push({ a, dto: pedido, editado });
+      preparadas.push({ a, dto: pedido, tope, editado: pedido > 0.001 });
     }
 
     // --- Guardar ---
@@ -303,14 +315,19 @@ const crear = async (req, res) => {
       await cli.query(
         `INSERT INTO offer_items (offer_id, articulo_id, descripcion, unidad, peso_neto,
                                   unidades_caja, precio_tarifa, precio_unidad, dto_pct,
-                                  dto_editado, orden)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+                                  dto_max, dto_editado, orden)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
         // precio_tarifa es el precio_vta del ERP tal cual (por kilo si la unidad
         // es K); precio_unidad es el derivado. Se guardan los dos: el primero
         // para poder reproducir las seis cifras del documento, el segundo porque
         // es lo que se consulta al listar ofertas.
+        //
+        // dto_max es el tope que regia ESE DIA. Se congela como todo lo demas:
+        // el del ERP cambia, y sin esto nadie podria saber despues si el
+        // comercial se paso de lo que tenia autorizado.
         [offerId, p.a.articulo_id, p.a.descripcion, p.a.unidad, p.a.peso_neto,
-          p.a.unidades_caja, p.a.precio_vta, calc.precio_unidad, p.dto, p.editado, orden++]
+          p.a.unidades_caja, p.a.precio_vta, calc.precio_unidad, p.dto, p.tope,
+          p.editado, orden++]
       );
     }
     await cli.query('COMMIT');
@@ -376,6 +393,12 @@ const montarOferta = async (id, usuario) => {
       unidad: l.unidad,
       unidades_caja: l.unidades_caja,
       dto_editado: l.dto_editado,
+      // El tope que regia el dia de la emision, y si se paso de el. NO sale en
+      // el PDF: el cliente no tiene por que leer hasta donde se le podia haber
+      // bajado. Es para la pantalla y para administracion.
+      dto_max: l.dto_max === null || l.dto_max === undefined ? null : Number(l.dto_max),
+      dto_excedido: l.dto_max !== null && l.dto_max !== undefined
+        && Number(l.dto_pct) - Number(l.dto_max) > 0.001,
       // Se reproduce desde la TARIFA guardada, no desde el precio de unidad:
       // asi el precio por kilo sale exacto en vez de tener que dividir, y las
       // seis cifras salen identicas a las del dia que se emitio.

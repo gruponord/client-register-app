@@ -205,7 +205,15 @@ const OffersPage = () => {
                       </td>
                       <td className="px-4 py-2 text-right whitespace-nowrap">
                         {l.dto_pct > 0 ? num(l.dto_pct) + ' %' : '—'}
-                        {l.dto_editado && <div className="text-xs text-amber-600">a mano</div>}
+                        {/* El tope que regia el dia de la emision, congelado con
+                            la linea. En las anteriores al cambio no se guardo y
+                            queda en blanco, que es mas honesto que inventarlo. */}
+                        {l.dto_max !== null && l.dto_max !== undefined && (
+                          <div className="text-xs text-gray-400">máx {num(l.dto_max)} %</div>
+                        )}
+                        {l.dto_excedido && (
+                          <div className="text-xs text-red-600 font-medium">supera el máximo</div>
+                        )}
                       </td>
                       <td className="px-4 py-2 text-right whitespace-nowrap">
                         {importes(l, 'precio_final_').map((x, i) => (
