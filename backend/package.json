@@ -11,7 +11,8 @@
     "seed:plv": "node src/db/seedPlv.js",
     "seed:ofertas": "node src/db/seedOfertas.js",
     "vigila:sync": "node src/jobs/vigilarSync.js",
-    "vigila:sync:seco": "node src/jobs/vigilarSync.js --seco"
+    "vigila:sync:seco": "node src/jobs/vigilarSync.js --seco",
+    "pruebas": "node pruebas/pasa-suites.js"
   },
   "dependencies": {
     "bcrypt": "^5.1.1",
